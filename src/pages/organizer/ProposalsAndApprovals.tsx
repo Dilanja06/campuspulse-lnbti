@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { OrganizerLayout } from '../../components/OrganizerLayout';
 import { dataService } from '../../services/dataService';
 import { ProposalItem } from '../../types';
+import { getEventCoverImage } from '../../utils/eventImages';
 
 export const ProposalsAndApprovals: React.FC = () => {
   const [proposals, setProposals] = useState<ProposalItem[]>([]);
@@ -142,26 +143,33 @@ export const ProposalsAndApprovals: React.FC = () => {
                   className="bg-light-surface-container-lowest border border-light-outline-variant rounded-md p-lg flex flex-col gap-md shadow-sm"
                 >
                   <div className="flex flex-wrap items-start justify-between gap-md">
-                    <div className="flex flex-col gap-xs">
-                      <div className="flex flex-wrap items-center gap-sm">
-                        <span className="inline-flex items-center gap-xs px-sm py-xs rounded-full bg-info-container text-on-info-container">
-                          <span className="material-symbols-outlined text-[14px]" aria-hidden="true">
-                            hourglass_top
+                    <div className="flex items-start gap-md">
+                      <img
+                        src={getEventCoverImage(prop)}
+                        alt={prop.title}
+                        className="w-16 h-16 rounded object-cover shrink-0 border border-light-outline-variant shadow-xs hidden sm:block"
+                      />
+                      <div className="flex flex-col gap-xs">
+                        <div className="flex flex-wrap items-center gap-sm">
+                          <span className="inline-flex items-center gap-xs px-sm py-xs rounded-full bg-info-container text-on-info-container">
+                            <span className="material-symbols-outlined text-[14px]" aria-hidden="true">
+                              hourglass_top
+                            </span>
+                            <span className="font-label text-label-sm">
+                              Higher Authority
+                            </span>
                           </span>
-                          <span className="font-label text-label-sm">
-                            Higher Authority
+                          <span className="font-mono text-mono-md text-light-on-surface-variant tabular-nums">
+                            {prop.code}
                           </span>
-                        </span>
-                        <span className="font-mono text-mono-md text-light-on-surface-variant tabular-nums">
-                          {prop.code}
-                        </span>
+                        </div>
+                        <h2 className="font-title text-title-lg text-light-on-surface font-semibold">
+                          {prop.title}
+                        </h2>
+                        <p className="font-body text-body-md text-light-on-surface-variant tabular-nums">
+                          Proposed Date: {prop.event_date} · {prop.venue} · Budget: LKR {prop.budget.toLocaleString()}
+                        </p>
                       </div>
-                      <h2 className="font-title text-title-lg text-light-on-surface font-semibold">
-                        {prop.title}
-                      </h2>
-                      <p className="font-body text-body-md text-light-on-surface-variant tabular-nums">
-                        Proposed Date: {prop.event_date} · {prop.venue} · Budget: LKR {prop.budget.toLocaleString()}
-                      </p>
                     </div>
                     <span className="font-label text-label-md text-light-on-surface-variant tabular-nums">
                       Submitted {prop.submitted_at}
@@ -213,8 +221,14 @@ export const ProposalsAndApprovals: React.FC = () => {
                   key={prop.id}
                   className="bg-light-surface-container-lowest border border-light-outline-variant rounded-md p-lg flex flex-wrap items-center justify-between gap-lg shadow-sm"
                 >
-                  <div className="flex flex-col gap-xs max-w-prose">
-                    <div className="flex flex-wrap items-center gap-sm">
+                  <div className="flex items-center gap-md">
+                    <img
+                      src={getEventCoverImage(prop)}
+                      alt={prop.title}
+                      className="w-16 h-16 rounded object-cover shrink-0 border border-light-outline-variant shadow-xs hidden sm:block"
+                    />
+                    <div className="flex flex-col gap-xs max-w-prose">
+                      <div className="flex flex-wrap items-center gap-sm">
                       <span className="inline-flex items-center gap-xs px-sm py-xs rounded-full bg-warning-container text-on-warning-container">
                         <span className="material-symbols-outlined text-[14px]" aria-hidden="true">
                           edit_note
@@ -234,12 +248,13 @@ export const ProposalsAndApprovals: React.FC = () => {
                       {prop.comment || 'Comment from Dr. Kavinda Silva (Lecturer Coordinator): Please attach updated quotation.'}
                     </p>
                   </div>
-                  <Link
-                    to="/organizer/proposals/new"
-                    className="inline-flex items-center justify-center px-md py-sm rounded bg-light-primary text-light-on-primary hover:bg-light-primary-container transition-colors duration-state-change font-label text-label-lg whitespace-nowrap no-underline"
-                  >
-                    Edit &amp; Resubmit
-                  </Link>
+                </div>
+                <Link
+                  to="/organizer/proposals/new"
+                  className="inline-flex items-center justify-center px-md py-sm rounded bg-light-primary text-light-on-primary hover:bg-light-primary-container transition-colors duration-state-change font-label text-label-lg whitespace-nowrap no-underline"
+                >
+                  Edit &amp; Resubmit
+                </Link>
                 </article>
               );
             }
@@ -250,26 +265,33 @@ export const ProposalsAndApprovals: React.FC = () => {
                   key={prop.id}
                   className="bg-light-surface-container-lowest border border-light-outline-variant rounded-md p-lg flex flex-wrap items-center justify-between gap-lg shadow-sm"
                 >
-                  <div className="flex flex-col gap-xs">
-                    <div className="flex flex-wrap items-center gap-sm">
-                      <span className="inline-flex items-center gap-xs px-sm py-xs rounded-full bg-success-container text-on-success-container">
-                        <span className="material-symbols-outlined text-[14px]" aria-hidden="true">
-                          check_circle
+                  <div className="flex items-center gap-md">
+                    <img
+                      src={getEventCoverImage(prop)}
+                      alt={prop.title}
+                      className="w-16 h-16 rounded object-cover shrink-0 border border-light-outline-variant shadow-xs hidden sm:block"
+                    />
+                    <div className="flex flex-col gap-xs">
+                      <div className="flex flex-wrap items-center gap-sm">
+                        <span className="inline-flex items-center gap-xs px-sm py-xs rounded-full bg-success-container text-on-success-container">
+                          <span className="material-symbols-outlined text-[14px]" aria-hidden="true">
+                            check_circle
+                          </span>
+                          <span className="font-label text-label-sm">
+                            Approved &amp; Published
+                          </span>
                         </span>
-                        <span className="font-label text-label-sm">
-                          Approved &amp; Published
+                        <span className="font-mono text-mono-md text-light-on-surface-variant tabular-nums">
+                          {prop.code}
                         </span>
-                      </span>
-                      <span className="font-mono text-mono-md text-light-on-surface-variant tabular-nums">
-                        {prop.code}
-                      </span>
+                      </div>
+                      <h2 className="font-title text-title-lg text-light-on-surface font-semibold">
+                        {prop.title}
+                      </h2>
+                      <p className="font-body text-body-md text-light-on-surface-variant tabular-nums">
+                        {prop.event_date} · {prop.venue} · Live on Student Event Explorer
+                      </p>
                     </div>
-                    <h2 className="font-title text-title-lg text-light-on-surface font-semibold">
-                      {prop.title}
-                    </h2>
-                    <p className="font-body text-body-md text-light-on-surface-variant tabular-nums">
-                      {prop.event_date} · {prop.venue} · Live on Student Event Explorer
-                    </p>
                   </div>
                   <Link
                     to="/organizer/events"
@@ -287,26 +309,33 @@ export const ProposalsAndApprovals: React.FC = () => {
                 key={prop.id}
                 className="bg-light-surface-container-lowest border border-light-outline-variant rounded-md p-lg flex flex-wrap items-center justify-between gap-lg shadow-sm"
               >
-                <div className="flex flex-col gap-xs">
-                  <div className="flex flex-wrap items-center gap-sm">
-                    <span className="inline-flex items-center gap-xs px-sm py-xs rounded-full bg-light-surface-container text-light-on-surface-variant">
-                      <span className="material-symbols-outlined text-[14px]" aria-hidden="true">
-                        draft
+                <div className="flex items-center gap-md">
+                  <img
+                    src={getEventCoverImage(prop)}
+                    alt={prop.title}
+                    className="w-16 h-16 rounded object-cover shrink-0 border border-light-outline-variant shadow-xs hidden sm:block"
+                  />
+                  <div className="flex flex-col gap-xs">
+                    <div className="flex flex-wrap items-center gap-sm">
+                      <span className="inline-flex items-center gap-xs px-sm py-xs rounded-full bg-light-surface-container text-light-on-surface-variant">
+                        <span className="material-symbols-outlined text-[14px]" aria-hidden="true">
+                          draft
+                        </span>
+                        <span className="font-label text-label-sm">
+                          {prop.status}
+                        </span>
                       </span>
-                      <span className="font-label text-label-sm">
-                        {prop.status}
+                      <span className="font-mono text-mono-md text-light-on-surface-variant tabular-nums">
+                        {prop.code}
                       </span>
-                    </span>
-                    <span className="font-mono text-mono-md text-light-on-surface-variant tabular-nums">
-                      {prop.code}
-                    </span>
+                    </div>
+                    <h2 className="font-title text-title-lg text-light-on-surface font-semibold">
+                      {prop.title}
+                    </h2>
+                    <p className="font-body text-body-md text-light-on-surface-variant tabular-nums">
+                      {prop.comment || `Submitted ${prop.submitted_at} · Budget: LKR ${prop.budget?.toLocaleString()}`}
+                    </p>
                   </div>
-                  <h2 className="font-title text-title-lg text-light-on-surface font-semibold">
-                    {prop.title}
-                  </h2>
-                  <p className="font-body text-body-md text-light-on-surface-variant tabular-nums">
-                    {prop.comment || `Submitted ${prop.submitted_at} · Budget: LKR ${prop.budget?.toLocaleString()}`}
-                  </p>
                 </div>
                 <Link
                   to="/organizer/proposals/new"

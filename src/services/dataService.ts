@@ -1,4 +1,5 @@
 import { supabase } from '../supabaseClient';
+import { getEventCoverImage } from '../utils/eventImages';
 import {
   EventItem,
   RegistrationItem,
@@ -48,7 +49,10 @@ export const dataService = {
         .order('start_date', { ascending: true });
 
       if (!error && data && data.length > 0) {
-        return data as EventItem[];
+        return (data as EventItem[]).map((ev) => ({
+          ...ev,
+          image_url: ev.image_url || getEventCoverImage(ev),
+        }));
       }
 
       if (!error && data && data.length === 0) {
@@ -58,9 +62,15 @@ export const dataService = {
           console.warn('Auto-seed events notice:', e);
         }
       }
-      return initialEvents;
+      return initialEvents.map((ev) => ({
+        ...ev,
+        image_url: ev.image_url || getEventCoverImage(ev),
+      }));
     } catch {
-      return initialEvents;
+      return initialEvents.map((ev) => ({
+        ...ev,
+        image_url: ev.image_url || getEventCoverImage(ev),
+      }));
     }
   },
 
@@ -73,11 +83,17 @@ export const dataService = {
         .single();
 
       if (!error && data) {
-        return data as EventItem;
+        const ev = data as EventItem;
+        return {
+          ...ev,
+          image_url: ev.image_url || getEventCoverImage(ev),
+        };
       }
-      return initialEvents.find((e) => e.id === id) || null;
+      const found = initialEvents.find((e) => e.id === id);
+      return found ? { ...found, image_url: found.image_url || getEventCoverImage(found) } : null;
     } catch {
-      return initialEvents.find((e) => e.id === id) || null;
+      const found = initialEvents.find((e) => e.id === id);
+      return found ? { ...found, image_url: found.image_url || getEventCoverImage(found) } : null;
     }
   },
 

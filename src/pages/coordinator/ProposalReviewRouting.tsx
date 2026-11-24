@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { CoordinatorLayout } from '../../components/CoordinatorLayout';
 import { dataService } from '../../services/dataService';
 import { ProposalItem } from '../../types';
+import { getEventCoverImage } from '../../utils/eventImages';
 
 export const ProposalReviewRouting: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -132,6 +133,20 @@ export const ProposalReviewRouting: React.FC = () => {
             <h1 className="font-headline text-headline-lg text-light-on-surface">
               {propTitle}
             </h1>
+          </div>
+        </div>
+
+        {/* Cover Preview */}
+        <div className="h-44 rounded-lg overflow-hidden relative shadow-sm border border-light-outline-variant bg-slate-900">
+          <img
+            src={getEventCoverImage(proposal || { code: propCode, title: propTitle })}
+            alt={propTitle}
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent p-md flex items-end justify-between text-white">
+            <span className="text-xs font-mono px-sm py-xs rounded bg-black/60 backdrop-blur-sm border border-white/10">
+              Cover Flyer Attached · {propCode}
+            </span>
           </div>
         </div>
 

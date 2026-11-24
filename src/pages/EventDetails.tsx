@@ -4,7 +4,7 @@ import { AppLayout } from '../components/AppLayout';
 import { StatusChip } from '../components/StatusChip';
 import { EventItem, RegistrationItem } from '../types';
 import { dataService } from '../services/dataService';
-import { getEventCoverImage } from '../utils/eventImages';
+import { getEventCoverImage, getEventFlyerImage } from '../utils/eventImages';
 
 export const EventDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -136,6 +136,43 @@ export const EventDetails: React.FC = () => {
             <p className="font-body text-body-lg text-light-on-surface-variant leading-relaxed m-0">
               {event.description}
             </p>
+          </div>
+
+          {/* Official Event Flyer & Poster */}
+          <div className="bg-light-surface-container-lowest border border-light-outline-variant rounded-md p-lg flex flex-col gap-md shadow-sm">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-xs text-light-primary">
+                <span className="material-symbols-outlined text-[22px]">photo_camera_back</span>
+                <h2 className="font-headline text-headline-sm font-semibold text-light-on-surface m-0">
+                  Official Event Flyer &amp; Poster
+                </h2>
+              </div>
+              <a
+                href={getEventFlyerImage(event)}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-xs font-label text-label-sm text-light-primary hover:underline no-underline"
+              >
+                <span>View Full Resolution</span>
+                <span className="material-symbols-outlined text-[16px]">open_in_new</span>
+              </a>
+            </div>
+
+            <div className="w-full max-h-[460px] rounded-md overflow-hidden bg-slate-900 border border-light-outline-variant flex items-center justify-center relative group">
+              <img
+                src={getEventFlyerImage(event)}
+                alt={`${event.title} Flyer Poster`}
+                className="w-full max-h-[460px] object-cover object-center group-hover:scale-[1.01] transition-transform duration-300"
+              />
+              <div className="absolute bottom-0 inset-x-0 p-md bg-gradient-to-t from-black/85 via-black/40 to-transparent flex items-end justify-between text-white">
+                <span className="font-label text-label-sm backdrop-blur-sm px-sm py-xs rounded bg-black/50 border border-white/10">
+                  {event.club_name} · Official Poster
+                </span>
+                <span className="text-xs font-mono opacity-90 px-sm py-xs rounded bg-black/50 border border-white/10">
+                  {event.code}
+                </span>
+              </div>
+            </div>
           </div>
 
           {/* Event Schedule Timeline */}
