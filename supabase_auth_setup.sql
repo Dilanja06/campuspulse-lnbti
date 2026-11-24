@@ -191,8 +191,10 @@ DO $$
 DECLARE
     acct RECORD;
     v_uid UUID;
-    v_pw_hash TEXT := crypt('password123', gen_salt('bf'));
+    v_pw_hash TEXT;
 BEGIN
+    PERFORM set_config('search_path', 'public, extensions', true);
+    v_pw_hash := crypt('password123', gen_salt('bf'));
     FOR acct IN
         SELECT * FROM (VALUES
             ('11111111-1111-4111-8111-000000000001'::uuid, 'nethmi.p@university.edu',  'Nethmi Perera',          'student',      'UG/2024/CS/0142', NULL::text,        'Faculty of Computing',       'Computing',               NULL::text,    NULL::text,    'NP'),
