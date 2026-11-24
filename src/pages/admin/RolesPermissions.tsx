@@ -1,260 +1,243 @@
 import React, { useEffect, useState } from 'react';
 import { AdminLayout } from '../../components/AdminLayout';
-import { dataService } from '../../services/dataService';
 import { RoleAssignment } from '../../types';
+import { dataService } from '../../services/dataService';
 
 export const RolesPermissions: React.FC = () => {
-  const [roles, setRoles] = useState<RoleAssignment[]>([]);
-  const [showAssignModal, setShowAssignModal] = useState(false);
-  const [newName, setNewName] = useState('');
-  const [newIdentifier, setNewIdentifier] = useState('');
-  const [newRole, setNewRole] = useState('Authorized Club Organizer');
-  const [newScope, setNewScope] = useState('Robotics Society (CLB-07)');
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [assignments, setAssignments] = useState<RoleAssignment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showGrantModal, setShowGrantModal] = useState(false);
+  const [editingRole, setEditingRole] = useState<RoleAssignment | null>(null);
 
-  const fetchRoles = async () => {
+  const [name, setName] = useState('');
+  const [identifier, setIdentifier] = useState('');
+  const [role, setRole] = useState('Coordinator');
+  const [scope, setScope] = useState('Faculty of Computing');
+
+  const loadRoles = async () => {
+    setLoading(true);
     try {
-      const data = await dataService.getRoleAssignments();
-      setRoles([...data]);
-    } catch (err) {
-      console.warn('Error fetching roles:', err);
+      const list = await dataService.getRoleAssignments();
+      setAssignments(list);
+    } finally {
+      setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchRoles();
+    loadRoles();
   }, []);
 
-  const handleRevokeRole = async (id: string, name: string) => {
-    await dataService.revokeRole(id);
-    await dataService.logAuditEvent(`Revoked Permission for ${name}`, id);
-    setToastMessage(`Revoked permissions for ${name}.`);
-    setTimeout(() => setToastMessage(null), 4000);
-    fetchRoles();
+  const handleGrant = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim() || !identifier.trim()) return;
+    await dataService.assignRole({
+      name: name.trim(),
+      identifier: identifier.trim(),
+      role,
+      scope: scope.trim(),
+      status: role.includes('Organizer') || role.includes('Committee') ? 'Officer Permission' : 'Active',
+    });
+    setShowGrantModal(false);
+    setName('');
+    setIdentifier('');
+    await loadRoles();
   };
 
-  const handleAssignRole = async (e: React.FormEvent) => {
+  const handleSaveScope = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newName || !newIdentifier) return;
-    await dataService.assignRole({
-      name: newName,
-      identifier: newIdentifier,
-      role: newRole,
-      scope: newScope,
-      status: newRole.includes('Organizer') ? 'Officer Permission' : 'Active',
+    if (!editingRole) return;
+    await dataService.updateRoleAssignment(editingRole.id, {
+      role: editingRole.role,
+      scope: editingRole.scope,
+      status: editingRole.status,
     });
-    await dataService.logAuditEvent(`Assigned Role: ${newRole} to ${newName}`, newIdentifier);
-    setShowAssignModal(false);
-    setNewName('');
-    setNewIdentifier('');
-    setToastMessage(`Successfully granted ${newRole} to ${newName}.`);
-    setTimeout(() => setToastMessage(null), 4000);
-    fetchRoles();
+    setEditingRole(null);
+    await loadRoles();
+  };
+
+  const handleRevoke = async (id: string) => {
+    if (!window.confirm('Revoke this role assignment?')) return;
+    await dataService.revokeRole(id);
+    await loadRoles();
   };
 
   return (
     <AdminLayout>
-      <main className="flex-1 p-xl max-w-[1280px] w-full mx-auto flex flex-col gap-lg">
-        {/* Toast Notification */}
-        {toastMessage && (
-          <div className="bg-success-container text-on-success-container px-lg py-md rounded-md flex items-center justify-between gap-md shadow-sm transition-all">
-            <div className="flex items-center gap-sm">
-              <span className="material-symbols-outlined text-[20px]">check_circle</span>
-              <span className="font-label text-label-md">{toastMessage}</span>
-            </div>
-            <button
-              onClick={() => setToastMessage(null)}
-              className="text-on-success-container hover:opacity-75 cursor-pointer bg-transparent border-0 p-0"
-            >
-              <span className="material-symbols-outlined text-[18px]">close</span>
-            </button>
-          </div>
-        )}
-
-        <div className="flex flex-wrap items-end justify-between gap-md">
+      <main className="p-lg md:p-xl max-w-[1400px] w-full mx-auto flex flex-col gap-xl">
+        <header className="flex flex-col md:flex-row md:items-center justify-between gap-md">
           <div className="flex flex-col gap-xs">
-            <h1 className="font-headline text-headline-lg text-light-on-surface">
-              Roles &amp; Permissions
+            <h1 className="font-headline text-headline-lg text-light-on-surface font-semibold m-0">
+              RBAC Roles &amp; Institutional Scopes (A05)
             </h1>
-            <p className="font-body text-body-md text-light-on-surface-variant">
-              Assign university approval authorities, verification staff, lecturer coordinators, and authorized club organizers.
+            <p className="font-body text-body-md text-light-on-surface-variant m-0">
+              Enforce Separation of Powers by assigning Coordinator, Authority, Verification, and Officer scopes without overlapping privileges.
             </p>
           </div>
           <button
             type="button"
-            onClick={() => setShowAssignModal(true)}
-            className="inline-flex items-center justify-center gap-xs px-md py-sm rounded bg-light-primary text-light-on-primary hover:bg-light-primary-container transition-colors duration-state-change font-label text-label-lg whitespace-nowrap cursor-pointer"
+            onClick={() => setShowGrantModal(true)}
+            className="inline-flex items-center gap-xs px-md py-sm rounded bg-light-primary text-light-on-primary font-label text-label-md font-semibold border-0 cursor-pointer"
           >
-            <span className="material-symbols-outlined text-[18px]" aria-hidden="true">
-              person_add
-            </span>
-            <span>Assign Role</span>
+            <span className="material-symbols-outlined text-[18px]">person_add</span>
+            <span>Assign Institutional Role</span>
           </button>
-        </div>
+        </header>
 
-        {/* Modal for Assigning Role */}
-        {showAssignModal && (
-          <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-md">
-            <div className="bg-light-surface-container-lowest border border-light-outline-variant rounded-md p-xl max-w-md w-full flex flex-col gap-md shadow-lg">
-              <h2 className="font-headline text-headline-sm text-light-on-surface">
-                Assign System / Club Role
-              </h2>
-              <form onSubmit={handleAssignRole} className="flex flex-col gap-md">
-                <div className="flex flex-col gap-xs">
-                  <label className="font-label text-label-md text-light-on-surface">
-                    Name
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Dinithi Perera"
-                    value={newName}
-                    onChange={(e) => setNewName(e.target.value)}
-                    className="px-md py-sm rounded bg-light-surface-container-low border border-light-outline text-light-on-surface font-body text-body-md focus:border-light-primary outline-none"
-                  />
-                </div>
-                <div className="flex flex-col gap-xs">
-                  <label className="font-label text-label-md text-light-on-surface">
-                    Staff ID / Student ID
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. UG/2024/CS/0881"
-                    value={newIdentifier}
-                    onChange={(e) => setNewIdentifier(e.target.value)}
-                    className="px-md py-sm rounded bg-light-surface-container-low border border-light-outline text-light-on-surface font-body text-body-md focus:border-light-primary outline-none"
-                  />
-                </div>
-                <div className="flex flex-col gap-xs">
-                  <label className="font-label text-label-md text-light-on-surface">
-                    Role
-                  </label>
-                  <select
-                    value={newRole}
-                    onChange={(e) => setNewRole(e.target.value)}
-                    className="px-md py-sm rounded bg-light-surface-container-low border border-light-outline text-light-on-surface font-body text-body-md focus:border-light-primary outline-none"
-                  >
-                    <option>Authorized Club Organizer</option>
-                    <option>Lecturer Coordinator</option>
-                    <option>External Verification Staff</option>
-                    <option>Higher University Authority</option>
-                  </select>
-                </div>
-                <div className="flex flex-col gap-xs">
-                  <label className="font-label text-label-md text-light-on-surface">
-                    Scope / Assigned Department
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={newScope}
-                    onChange={(e) => setNewScope(e.target.value)}
-                    className="px-md py-sm rounded bg-light-surface-container-low border border-light-outline text-light-on-surface font-body text-body-md focus:border-light-primary outline-none"
-                  />
-                </div>
-                <div className="flex items-center justify-end gap-sm pt-sm">
-                  <button
-                    type="button"
-                    onClick={() => setShowAssignModal(false)}
-                    className="px-md py-sm rounded bg-light-surface-container-lowest text-light-on-surface border border-light-outline-variant hover:bg-light-surface-container-low font-label text-label-md cursor-pointer"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-md py-sm rounded bg-light-primary text-light-on-primary hover:bg-light-primary-container font-label text-label-md cursor-pointer"
-                  >
-                    Grant Role
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-
-        <section aria-label="Role assignments table" className="bg-light-surface-container-lowest border border-light-outline-variant rounded-md overflow-hidden shadow-sm">
+        <section className="bg-light-surface-container-lowest border border-light-outline-variant rounded-md shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="bg-light-surface-container-low border-b border-light-outline-variant">
-                  <th scope="col" className="px-md py-md font-label text-label-sm text-light-on-surface-variant uppercase tracking-wider">
-                    Staff / Student
-                  </th>
-                  <th scope="col" className="px-md py-md font-label text-label-sm text-light-on-surface-variant uppercase tracking-wider">
-                    Assigned Role
-                  </th>
-                  <th scope="col" className="px-md py-md font-label text-label-sm text-light-on-surface-variant uppercase tracking-wider">
-                    Scope
-                  </th>
-                  <th scope="col" className="px-md py-md font-label text-label-sm text-light-on-surface-variant uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th scope="col" className="px-md py-md font-label text-label-sm text-light-on-surface-variant uppercase tracking-wider text-right">
-                    Action
-                  </th>
+                <tr className="border-b border-light-outline-variant bg-light-surface-container-low/50 text-light-on-surface-variant font-label text-label-sm">
+                  <th className="px-md py-md">Assignee</th>
+                  <th className="px-md py-md">ID / Account</th>
+                  <th className="px-md py-md">Granted Role</th>
+                  <th className="px-md py-md">Governance Scope</th>
+                  <th className="px-md py-md">Status</th>
+                  <th className="px-md py-md text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-light-outline-variant">
-                {roles.map((item) => (
-                  <tr key={item.id} className="hover:bg-light-surface-container-low/40 transition-colors">
-                    <td className="px-md py-md">
-                      <div className="flex flex-col">
-                        <span className="font-title text-title-md text-light-on-surface font-semibold whitespace-nowrap">
-                          {item.name}
+                {loading ? (
+                  <tr><td colSpan={6} className="p-xl text-center">Loading RBAC ledger...</td></tr>
+                ) : (
+                  assignments.map((item) => (
+                    <tr key={item.id} className="hover:bg-light-surface-container-low/30">
+                      <td className="px-md py-md font-title text-title-md text-light-on-surface font-medium">
+                        {item.name}
+                      </td>
+                      <td className="px-md py-md font-mono text-mono-sm text-light-on-surface-variant">
+                        {item.identifier}
+                      </td>
+                      <td className="px-md py-md font-label text-label-md font-semibold text-light-primary">
+                        {item.role}
+                      </td>
+                      <td className="px-md py-md font-body text-body-md text-light-on-surface-variant">
+                        {item.scope}
+                      </td>
+                      <td className="px-md py-md">
+                        <span className="px-sm py-0.5 rounded-full bg-info-container text-on-info-container font-label text-label-sm">
+                          {item.status}
                         </span>
-                        <span className="font-mono text-mono-md text-light-on-surface-variant">
-                          {item.identifier}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-md py-md font-body text-body-md text-light-on-surface whitespace-nowrap">
-                      {item.role}
-                    </td>
-                    <td className="px-md py-md font-body text-body-md text-light-on-surface-variant whitespace-nowrap">
-                      {item.scope}
-                    </td>
-                    <td className="px-md py-md whitespace-nowrap">
-                      {item.status === 'Active' ? (
-                        <span className="inline-flex items-center gap-xs px-sm py-xs rounded-full bg-success-container text-on-success-container whitespace-nowrap">
-                          <span className="material-symbols-outlined text-[14px]">check_circle</span>
-                          <span className="font-label text-label-sm">Active</span>
-                        </span>
-                      ) : (
-                        <span className="inline-flex items-center gap-xs px-sm py-xs rounded-full bg-info-container text-on-info-container whitespace-nowrap">
-                          <span className="material-symbols-outlined text-[14px]">badge</span>
-                          <span className="font-label text-label-sm">Officer Permission</span>
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-md py-md text-right whitespace-nowrap">
-                      {item.status === 'Officer Permission' ? (
-                        <button
-                          type="button"
-                          onClick={() => handleRevokeRole(item.id, item.name)}
-                          className="px-md py-xs rounded bg-light-surface-container-lowest text-light-error border border-light-outline-variant hover:bg-light-error-container transition-colors duration-state-change font-label text-label-md cursor-pointer"
-                        >
-                          Revoke
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setToastMessage(`Editing scope for ${item.name}.`);
-                            setTimeout(() => setToastMessage(null), 3000);
-                          }}
-                          className="px-md py-xs rounded bg-light-surface-container-lowest text-light-primary border border-light-outline-variant hover:bg-light-surface-container-low transition-colors duration-state-change font-label text-label-md cursor-pointer"
-                        >
-                          Manage
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td className="px-md py-md text-right whitespace-nowrap">
+                        <div className="inline-flex gap-xs">
+                          <button
+                            type="button"
+                            onClick={() => setEditingRole({ ...item })}
+                            className="px-sm py-xs rounded border border-light-outline-variant bg-transparent font-label text-label-sm cursor-pointer"
+                          >
+                            Manage Scope
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleRevoke(item.id)}
+                            className="px-sm py-xs rounded bg-light-error-container text-light-on-error-container font-label text-label-sm border-0 cursor-pointer"
+                          >
+                            Revoke
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
         </section>
+
+        {showGrantModal && (
+          <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-md">
+            <form
+              onSubmit={handleGrant}
+              className="bg-light-surface-container-lowest rounded-lg max-w-md w-full p-lg border border-light-outline-variant shadow-xl flex flex-col gap-md"
+            >
+              <h2 className="font-headline text-headline-sm font-semibold m-0">Assign Institutional Role</h2>
+              <input
+                type="text"
+                required
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Full Name"
+                className="px-md py-sm rounded border border-light-outline bg-light-surface-container-lowest"
+              />
+              <input
+                type="text"
+                required
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
+                placeholder="Staff/Student ID or Email"
+                className="px-md py-sm rounded border border-light-outline bg-light-surface-container-lowest"
+              />
+              <select
+                value={role}
+                onChange={(e) => setRole(e.target.value)}
+                className="px-md py-sm rounded border border-light-outline bg-light-surface-container-lowest"
+              >
+                <option value="Coordinator">Coordinator (Faculty Vetting)</option>
+                <option value="Higher Authority">Higher Authority (Dean/Bursar)</option>
+                <option value="Verification Staff">External Verification Staff</option>
+                <option value="Organizer">Club Organizer</option>
+                <option value="Committee Member">Committee Member</option>
+              </select>
+              <input
+                type="text"
+                required
+                value={scope}
+                onChange={(e) => setScope(e.target.value)}
+                placeholder="Governance Scope (Faculty or Club)"
+                className="px-md py-sm rounded border border-light-outline bg-light-surface-container-lowest"
+              />
+              <div className="flex justify-end gap-sm pt-sm">
+                <button type="button" onClick={() => setShowGrantModal(false)} className="px-md py-xs rounded border border-light-outline-variant bg-transparent cursor-pointer">
+                  Cancel
+                </button>
+                <button type="submit" className="px-md py-xs rounded bg-light-primary text-light-on-primary font-semibold border-0 cursor-pointer">
+                  Grant Access
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {editingRole && (
+          <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-md">
+            <form
+              onSubmit={handleSaveScope}
+              className="bg-light-surface-container-lowest rounded-lg max-w-md w-full p-lg border border-light-outline-variant shadow-xl flex flex-col gap-md"
+            >
+              <h2 className="font-headline text-headline-sm font-semibold m-0">Manage Scope · {editingRole.name}</h2>
+              <label className="flex flex-col gap-xs">
+                <span className="font-label text-label-md font-semibold">Assigned Role</span>
+                <input
+                  type="text"
+                  required
+                  value={editingRole.role}
+                  onChange={(e) => setEditingRole({ ...editingRole, role: e.target.value })}
+                  className="px-md py-sm rounded border border-light-outline bg-light-surface-container-lowest"
+                />
+              </label>
+              <label className="flex flex-col gap-xs">
+                <span className="font-label text-label-md font-semibold">Governance Scope</span>
+                <input
+                  type="text"
+                  required
+                  value={editingRole.scope}
+                  onChange={(e) => setEditingRole({ ...editingRole, scope: e.target.value })}
+                  className="px-md py-sm rounded border border-light-outline bg-light-surface-container-lowest"
+                />
+              </label>
+              <div className="flex justify-end gap-sm pt-sm">
+                <button type="button" onClick={() => setEditingRole(null)} className="px-md py-xs rounded border border-light-outline-variant bg-transparent cursor-pointer">
+                  Cancel
+                </button>
+                <button type="submit" className="px-md py-xs rounded bg-light-primary text-light-on-primary font-semibold border-0 cursor-pointer">
+                  Save Scope
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
       </main>
     </AdminLayout>
   );

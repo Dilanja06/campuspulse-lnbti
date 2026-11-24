@@ -1,540 +1,493 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { OrganizerLayout } from '../../components/OrganizerLayout';
+import { ProposalItem } from '../../types';
 import { dataService } from '../../services/dataService';
-import { EVENT_COVER_PRESETS } from '../../utils/eventImages';
+import { getEventCoverImage } from '../../utils/eventImages';
 
 export const CreateEventProposal: React.FC = () => {
   const navigate = useNavigate();
 
-  const [title, setTitle] = useState('Table Tennis Open Tournament');
-  const [category, setCategory] = useState('Sports & Recreation');
-  const [venue, setVenue] = useState('Indoor Gymnasium · Main Hall');
-  const [eventDate, setEventDate] = useState('2026-12-08');
-  const [timeWindow, setTimeWindow] = useState('09:00 AM – 04:00 PM');
-  const [capacity, setCapacity] = useState('64');
-  const [fee, setFee] = useState('350');
-  const [seatHold, setSeatHold] = useState('10 minutes (Standard)');
-  const [manualApproval, setManualApproval] = useState(true);
-  const [budget, setBudget] = useState('24500');
-  const [externalApproval, setExternalApproval] = useState('No — On-campus internal event');
-  const [imageUrl, setImageUrl] = useState('https://images.unsplash.com/photo-1546519638-68e109498ffc?auto=format&fit=crop&w=800&q=80');
-  const [attachedFileName, setAttachedFileName] = useState<string | null>(null);
+  const [activeStep, setActiveStep] = useState<1 | 2 | 3>(1);
+  const [title, setTitle] = useState('');
+  const [category, setCategory] = useState<'Technical' | 'Sports' | 'Cultural' | 'Academic' | 'Community Service'>('Technical');
+  const [clubId, setClubId] = useState('club-cs');
+  const [eventDate, setEventDate] = useState('15 Dec 2026');
+  const [time, setTime] = useState('09:00 AM');
+  const [venue, setVenue] = useState('Main Auditorium');
+  const [capacity, setCapacity] = useState('150');
+  const [fee, setFee] = useState('0');
+  const [budget, setBudget] = useState('85000');
+  const [description, setDescription] = useState('');
+  const [refundPolicy, setRefundPolicy] = useState('Full refund up to 48 hours prior or upon official cancellation.');
+  const [holdDuration, setHoldDuration] = useState('10 mins');
+  const [requireManualApproval, setRequireManualApproval] = useState(false);
+  const [externalApproval, setExternalApproval] = useState('None Required');
+
+  const [imageUrl, setImageUrl] = useState('');
+  const [imageName, setImageName] = useState('');
+  const [documentName, setDocumentName] = useState('');
+  const [documentUrl, setDocumentUrl] = useState('');
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [uploadingDoc, setUploadingDoc] = useState(false);
+
+  const [clubs, setClubs] = useState<{ id: string; name: string }[]>([
+    { id: 'club-cs', name: 'Computer Society (CS)' },
+    { id: 'club-sports', name: 'University Sports Council' },
+    { id: 'club-robotics', name: 'Robotics & Automation Society' },
+    { id: 'club-drama', name: 'Drama & Performing Arts Circle' },
+    { id: 'club-rotaract', name: 'Rotaract Club' },
+  ]);
+
+  const [showPreview, setShowPreview] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
 
-  const handleSaveDraft = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
+  useEffect(() => {
+    dataService.getClubs().then((loaded) => {
+      if (loaded.length > 0) {
+        setClubs(loaded.map((c) => ({ id: c.id, name: c.name })));
+      }
+    });
+  }, []);
+
+  const selectedClub = clubs.find((c) => c.id === clubId)?.name || 'Computer Society (CS)';
+  const fallbackPreviewImg = getEventCoverImage({ category });
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingImage(true);
     try {
-      await dataService.createProposal({
-        title,
-        club_id: 'club-sports',
-        club_name: 'University Sports Council',
+      const uploaded = await dataService.uploadAsset(file, 'flyers');
+      setImageUrl(uploaded.url);
+      setImageName(uploaded.name);
+    } catch {
+      setErrorMsg('Failed to upload flyer image.');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const handleDocumentUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingDoc(true);
+    try {
+      const uploaded = await dataService.uploadAsset(file, 'documents');
+      setDocumentUrl(uploaded.url);
+      setDocumentName(uploaded.name);
+    } catch {
+      setErrorMsg('Failed to upload proposal document.');
+    } finally {
+      setUploadingDoc(false);
+    }
+  };
+
+  const submitProposal = async (asDraft = false) => {
+    if (!title.trim()) {
+      setErrorMsg('Please enter an Event Title before submitting.');
+      setActiveStep(1);
+      return;
+    }
+    setIsSubmitting(true);
+    setErrorMsg('');
+
+    try {
+      const statusVal: ProposalItem['status'] = asDraft ? 'Draft' : 'Pending Review';
+      const created = await dataService.createProposal({
+        title: title.trim(),
+        club_id: clubId,
+        club_name: selectedClub,
         category,
         event_date: eventDate,
-        time: timeWindow,
+        time,
         venue,
-        capacity: parseInt(capacity) || 50,
-        fee: parseFloat(fee) || 0,
-        budget: parseFloat(budget) || 20000,
-        status: 'Draft',
-        stage: 1,
-        stage_label: 'Committee Draft',
-        comment: 'Draft saved by officer',
-        hold_duration: seatHold,
-        require_manual_approval: manualApproval,
+        capacity: Number(capacity) || 100,
+        fee: Number(fee) || 0,
+        budget: Number(budget) || 0,
+        status: statusVal,
+        stage: asDraft ? 1 : 2,
+        stage_label: asDraft ? 'Officer Draft (Unsent)' : 'Submitted to Coordinator Review',
+        hold_duration: holdDuration,
+        require_manual_approval: requireManualApproval,
         external_approval: externalApproval,
-        image_url: imageUrl,
+        image_url: imageUrl || fallbackPreviewImg,
+        description: description.trim() || `${selectedClub} official campus event proposal.`,
+        refund_policy: refundPolicy,
+        document_name: documentName || undefined,
+        document_url: documentUrl || undefined,
       });
-      navigate('/organizer/proposals');
+
+      // SRS Governance Rule: NEVER auto-publish a live Event Edition before Coordinator & Higher Authority approvals.
+      navigate(`/organizer/proposals/${created.id}`);
     } catch (err) {
-      console.warn('Error saving draft:', err);
-      navigate('/organizer/proposals');
+      console.error('Proposal creation failed:', err);
+      setErrorMsg('Failed to persist proposal.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitting(true);
-    try {
-      await dataService.createProposal({
-        title,
-        club_id: 'club-sports',
-        club_name: 'University Sports Council',
-        category,
-        event_date: eventDate,
-        time: timeWindow,
-        venue,
-        capacity: parseInt(capacity) || 50,
-        fee: parseFloat(fee) || 0,
-        budget: parseFloat(budget) || 20000,
-        status: 'Higher Authority',
-        stage: 2,
-        stage_label: 'Lecturer Coordinator Review',
-        hold_duration: seatHold,
-        require_manual_approval: manualApproval,
-        external_approval: externalApproval,
-        image_url: imageUrl,
-      });
-
-      // Also create event so it immediately shows in the Event Explorer with this image!
-      await dataService.createEvent({
-        title,
-        club_name: 'University Sports Council',
-        club_id: 'club-sports',
-        category: category.includes('Sports') ? 'Sports' : category.includes('Technical') ? 'Technical' : category.includes('Cultural') ? 'Cultural' : 'Academic',
-        start_date: eventDate,
-        time: timeWindow,
-        venue,
-        fee: parseFloat(fee) || 0,
-        capacity: parseInt(capacity) || 50,
-        registered: 0,
-        eligibility: 'All Registered Undergraduates',
-        status: 'published',
-        description: `${title} organized by University Sports Council. Register now to secure your seat.`,
-        image_url: imageUrl,
-      });
-
-      navigate('/organizer/proposals');
-    } catch (err) {
-      console.warn('Error creating proposal:', err);
-      navigate('/organizer/proposals');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setAttachedFileName(e.target.files[0].name);
-    }
-  };
-
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const file = e.target.files[0];
-      const reader = new FileReader();
-      reader.onload = () => {
-        if (typeof reader.result === 'string') {
-          setImageUrl(reader.result);
-        }
-      };
-      reader.readAsDataURL(file);
-    }
+    submitProposal(false);
   };
 
   return (
     <OrganizerLayout>
-      {/* Top Header bar with Back link */}
-      <div className="h-14 bg-light-surface-container-lowest border-b border-light-outline-variant px-xl flex items-center justify-between gap-md sticky top-16 z-10">
-        <div className="flex items-center gap-md">
-          <Link
-            to="/organizer/proposals"
-            className="inline-flex items-center gap-xs text-light-primary hover:underline font-label text-label-lg no-underline"
-          >
-            <span className="material-symbols-outlined text-[20px]" aria-hidden="true">
-              arrow_back
-            </span>
-            <span>Back to Proposals</span>
-          </Link>
-          <span className="text-light-outline-variant" aria-hidden="true">
-            |
-          </span>
-          <span className="font-title text-title-md text-light-on-surface font-semibold">
-            Create Event Proposal
-          </span>
-        </div>
+      <main className="p-lg md:p-xl max-w-[1100px] w-full mx-auto flex flex-col gap-xl">
+        <header className="flex flex-col md:flex-row md:items-center justify-between gap-md">
+          <div className="flex flex-col gap-xs">
+            <h1 className="font-headline text-headline-lg text-light-on-surface font-semibold">
+              Create Event Proposal (O03)
+            </h1>
+            <p className="font-body text-body-md text-light-on-surface-variant">
+              Proposals enter Committee Quorum &amp; Coordinator Review prior to Higher Authority sign-off. Events only publish after full approval.
+            </p>
+          </div>
+          <div className="flex items-center gap-sm">
+            <button
+              type="button"
+              onClick={() => setShowPreview(true)}
+              className="inline-flex items-center gap-xs px-md py-sm rounded bg-light-surface-container-lowest border border-light-outline-variant text-light-on-surface font-label text-label-md font-semibold cursor-pointer hover:bg-light-surface-container-low"
+            >
+              <span className="material-symbols-outlined text-[18px]">visibility</span>
+              <span>Preview Card</span>
+            </button>
+            <button
+              type="button"
+              disabled={isSubmitting}
+              onClick={() => submitProposal(true)}
+              className="px-md py-sm rounded bg-light-surface-container-lowest border border-light-outline-variant text-light-on-surface-variant font-label text-label-md font-semibold cursor-pointer hover:bg-light-surface-container-low"
+            >
+              Save Draft
+            </button>
+          </div>
+        </header>
 
-        <div className="flex items-center gap-sm">
-          <span className="font-mono text-mono-md text-light-on-surface-variant tabular-nums">
-            Draft · PROP-1102
-          </span>
-        </div>
-      </div>
+        {/* Interactive Step Pills */}
+        <nav aria-label="Proposal creation steps" className="grid grid-cols-3 gap-sm bg-light-surface-container-low p-xs rounded-md">
+          {[
+            { num: 1 as const, label: '1. Core Event Details' },
+            { num: 2 as const, label: '2. Budget, Seats & Policy' },
+            { num: 3 as const, label: '3. Media & Governance' },
+          ].map((s) => (
+            <button
+              key={s.num}
+              type="button"
+              onClick={() => setActiveStep(s.num)}
+              className={`py-sm px-md rounded font-label text-label-md font-semibold border-0 cursor-pointer transition-all ${
+                activeStep === s.num
+                  ? 'bg-light-surface-container-lowest text-light-primary shadow-sm'
+                  : 'bg-transparent text-light-on-surface-variant hover:text-light-on-surface'
+              }`}
+            >
+              {s.label}
+            </button>
+          ))}
+        </nav>
 
-      {/* Single-Column Form Workspace */}
-      <main className="flex-1 p-xl max-w-[960px] w-full mx-auto flex flex-col gap-xl">
-        <div className="flex flex-col gap-xs">
-          <h1 className="font-headline text-headline-lg text-light-on-surface">
-            New Event Proposal
-          </h1>
-          <p className="font-body text-body-md text-light-on-surface-variant">
-            Submitted proposals route to the five Sports Club committee decision-makers and Lecturer Coordinator for review.
-          </p>
-        </div>
+        {errorMsg && (
+          <div className="p-md rounded bg-light-error-container text-light-on-error-container font-body text-body-md">
+            {errorMsg}
+          </div>
+        )}
 
-        <form onSubmit={handleSubmit} className="flex flex-col gap-lg">
-          {/* Section 1: Event Core Details */}
-          <section className="bg-light-surface-container-lowest border border-light-outline-variant rounded-md p-lg flex flex-col gap-md shadow-sm">
-            <h2 className="font-headline text-headline-sm text-light-on-surface">
-              1. Event Details
-            </h2>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-md">
-              <div className="flex flex-col gap-xs md:col-span-2">
-                <label
-                  htmlFor="event-title"
-                  className="font-label text-label-md text-light-on-surface"
-                >
-                  Event Title
-                </label>
-                <input
-                  id="event-title"
-                  type="text"
-                  required
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  className="w-full px-md py-sm rounded bg-light-surface-container-lowest border border-light-outline text-light-on-surface font-body text-body-md focus:border-light-primary focus:ring-2 focus:ring-light-primary/20 outline-none"
-                />
-              </div>
-
-              <div className="flex flex-col gap-xs">
-                <label
-                  htmlFor="event-category"
-                  className="font-label text-label-md text-light-on-surface"
-                >
-                  Category
-                </label>
-                <select
-                  id="event-category"
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                  className="w-full px-md py-sm rounded bg-light-surface-container-lowest border border-light-outline text-light-on-surface font-body text-body-md focus:border-light-primary focus:ring-2 focus:ring-light-primary/20 outline-none"
-                >
-                  <option>Sports &amp; Recreation</option>
-                  <option>Workshop &amp; Clinic</option>
-                  <option>Inter-University Championship</option>
-                </select>
-              </div>
-
-              <div className="flex flex-col gap-xs">
-                <label
-                  htmlFor="event-venue"
-                  className="font-label text-label-md text-light-on-surface"
-                >
-                  Proposed Venue
-                </label>
-                <input
-                  id="event-venue"
-                  type="text"
-                  required
-                  value={venue}
-                  onChange={(e) => setVenue(e.target.value)}
-                  className="w-full px-md py-sm rounded bg-light-surface-container-lowest border border-light-outline text-light-on-surface font-body text-body-md focus:border-light-primary focus:ring-2 focus:ring-light-primary/20 outline-none"
-                />
-              </div>
-
-              <div className="flex flex-col gap-xs">
-                <label
-                  htmlFor="event-date"
-                  className="font-label text-label-md text-light-on-surface"
-                >
-                  Event Date
-                </label>
-                <input
-                  id="event-date"
-                  type="date"
-                  required
-                  value={eventDate}
-                  onChange={(e) => setEventDate(e.target.value)}
-                  className="w-full px-md py-sm rounded bg-light-surface-container-lowest border border-light-outline text-light-on-surface font-body text-body-md tabular-nums focus:border-light-primary focus:ring-2 focus:ring-light-primary/20 outline-none"
-                />
-              </div>
-
-              <div className="flex flex-col gap-xs">
-                <label
-                  htmlFor="event-time"
-                  className="font-label text-label-md text-light-on-surface"
-                >
-                  Time Window
-                </label>
-                <input
-                  id="event-time"
-                  type="text"
-                  required
-                  value={timeWindow}
-                  onChange={(e) => setTimeWindow(e.target.value)}
-                  className="w-full px-md py-sm rounded bg-light-surface-container-lowest border border-light-outline text-light-on-surface font-body text-body-md tabular-nums focus:border-light-primary focus:ring-2 focus:ring-light-primary/20 outline-none"
-                />
-              </div>
-            </div>
-          </section>
-
-          {/* Section: Event Cover Photo & Promotional Banner */}
-          <section className="bg-light-surface-container-lowest border border-light-outline-variant rounded-md p-lg flex flex-col gap-md shadow-sm">
-            <div className="flex flex-col gap-xs">
-              <h2 className="font-headline text-headline-sm text-light-on-surface">
-                2. Event Cover Image &amp; Flyer
+        <form onSubmit={handleSubmit} className="bg-light-surface-container-lowest border border-light-outline-variant rounded-md p-lg md:p-xl flex flex-col gap-lg shadow-sm">
+          {activeStep === 1 && (
+            <div className="flex flex-col gap-md">
+              <h2 className="font-headline text-headline-sm text-light-on-surface font-semibold m-0">
+                Core Event Details
               </h2>
-              <p className="font-body text-body-md text-light-on-surface-variant">
-                Upload a promotional banner flyer or select a campus cover image. This image will appear at the top of the event card in the student portal and on the public event page.
-              </p>
-            </div>
 
-            {/* Live Preview Card */}
-            <div className="flex flex-col gap-xs">
-              <span className="font-label text-label-sm font-semibold text-light-on-surface">
-                Card Header Preview
-              </span>
-              <div className="h-44 max-w-md w-full relative rounded-md overflow-hidden bg-slate-900 border border-light-outline-variant shadow-sm">
-                <img
-                  src={imageUrl || 'https://images.unsplash.com/photo-1546519638-68e109498ffc?auto=format&fit=crop&w=800&q=80'}
-                  alt={title || 'Event preview'}
-                  className="w-full h-full object-cover"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-black/40 p-md flex flex-col justify-between text-white">
-                  <div className="flex justify-between items-start">
-                    <span className="px-sm py-0.5 rounded bg-black/60 text-xs font-mono backdrop-blur-sm border border-white/10">
-                      PREVIEW
-                    </span>
-                    <span className="px-sm py-0.5 rounded-full bg-success text-on-success text-xs font-semibold">
-                      Published
-                    </span>
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-xs uppercase tracking-wider text-teal-300 font-semibold drop-shadow">
-                      {category} · University Sports Council
-                    </span>
-                    <span className="font-title text-title-md font-bold text-white line-clamp-1 drop-shadow">
-                      {title || 'Your Event Title'}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Input Options: Preset buttons, File upload & URL */}
-            <div className="flex flex-col gap-md pt-xs">
-              <div className="flex flex-col gap-xs">
-                <span className="font-label text-label-sm font-semibold text-light-on-surface">
-                  Quick Preset Covers
-                </span>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-sm">
-                  {EVENT_COVER_PRESETS.map((preset) => (
-                    <button
-                      key={preset.label}
-                      type="button"
-                      onClick={() => setImageUrl(preset.url)}
-                      className={`flex items-center gap-sm p-xs rounded border text-left cursor-pointer transition-all ${
-                        imageUrl === preset.url
-                          ? 'border-light-primary bg-light-primary-container/20 ring-1 ring-light-primary'
-                          : 'border-light-outline-variant bg-light-surface-container-low hover:bg-light-surface-container'
-                      }`}
-                    >
-                      <img
-                        src={preset.url}
-                        alt={preset.label}
-                        className="w-10 h-10 rounded object-cover shrink-0"
-                      />
-                      <span className="font-label text-label-sm text-light-on-surface font-medium truncate">
-                        {preset.label}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-md items-end">
-                <div className="flex flex-col gap-xs">
-                  <label htmlFor="image-url-input" className="font-label text-label-md text-light-on-surface">
-                    Or Enter Image URL
-                  </label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-md">
+                <label className="flex flex-col gap-xs md:col-span-2">
+                  <span className="font-label text-label-md text-light-on-surface font-semibold">Event Title *</span>
                   <input
-                    id="image-url-input"
+                    type="text"
+                    required
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder="e.g., Inter-Faculty Robotics Challenge 2026"
+                    className="px-md py-sm rounded border border-light-outline bg-light-surface-container-lowest text-light-on-surface font-body text-body-md"
+                  />
+                </label>
+
+                <label className="flex flex-col gap-xs">
+                  <span className="font-label text-label-md text-light-on-surface font-semibold">Organizing Club</span>
+                  <select
+                    value={clubId}
+                    onChange={(e) => setClubId(e.target.value)}
+                    className="px-md py-sm rounded border border-light-outline bg-light-surface-container-lowest text-light-on-surface font-body text-body-md"
+                  >
+                    {clubs.map((c) => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="flex flex-col gap-xs">
+                  <span className="font-label text-label-md text-light-on-surface font-semibold">Category</span>
+                  <select
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value as any)}
+                    className="px-md py-sm rounded border border-light-outline bg-light-surface-container-lowest text-light-on-surface font-body text-body-md"
+                  >
+                    <option value="Technical">Technical</option>
+                    <option value="Sports">Sports</option>
+                    <option value="Cultural">Cultural</option>
+                    <option value="Academic">Academic</option>
+                    <option value="Community Service">Community Service</option>
+                  </select>
+                </label>
+
+                <label className="flex flex-col gap-xs">
+                  <span className="font-label text-label-md text-light-on-surface font-semibold">Proposed Date</span>
+                  <input
+                    type="text"
+                    required
+                    value={eventDate}
+                    onChange={(e) => setEventDate(e.target.value)}
+                    className="px-md py-sm rounded border border-light-outline bg-light-surface-container-lowest text-light-on-surface font-body text-body-md"
+                  />
+                </label>
+
+                <label className="flex flex-col gap-xs">
+                  <span className="font-label text-label-md text-light-on-surface font-semibold">Start Time</span>
+                  <input
+                    type="text"
+                    required
+                    value={time}
+                    onChange={(e) => setTime(e.target.value)}
+                    className="px-md py-sm rounded border border-light-outline bg-light-surface-container-lowest text-light-on-surface font-body text-body-md"
+                  />
+                </label>
+
+                <label className="flex flex-col gap-xs md:col-span-2">
+                  <span className="font-label text-label-md text-light-on-surface font-semibold">Campus Venue</span>
+                  <input
+                    type="text"
+                    required
+                    value={venue}
+                    onChange={(e) => setVenue(e.target.value)}
+                    className="px-md py-sm rounded border border-light-outline bg-light-surface-container-lowest text-light-on-surface font-body text-body-md"
+                  />
+                </label>
+
+                <label className="flex flex-col gap-xs md:col-span-2">
+                  <span className="font-label text-label-md text-light-on-surface font-semibold">Description &amp; Objectives</span>
+                  <textarea
+                    rows={3}
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="Outline event schedule, expected learning outcomes, and safety preparations..."
+                    className="px-md py-sm rounded border border-light-outline bg-light-surface-container-lowest text-light-on-surface font-body text-body-md resize-none"
+                  />
+                </label>
+              </div>
+            </div>
+          )}
+
+          {activeStep === 2 && (
+            <div className="flex flex-col gap-md">
+              <h2 className="font-headline text-headline-sm text-light-on-surface font-semibold m-0">
+                Capacity, Fee &amp; Financial Policy
+              </h2>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-md">
+                <label className="flex flex-col gap-xs">
+                  <span className="font-label text-label-md text-light-on-surface font-semibold">Max Seat Capacity</span>
+                  <input
+                    type="number"
+                    min={1}
+                    value={capacity}
+                    onChange={(e) => setCapacity(e.target.value)}
+                    className="px-md py-sm rounded border border-light-outline bg-light-surface-container-lowest text-light-on-surface font-body text-body-md"
+                  />
+                </label>
+
+                <label className="flex flex-col gap-xs">
+                  <span className="font-label text-label-md text-light-on-surface font-semibold">Ticket Fee (LKR, 0 for Free)</span>
+                  <input
+                    type="number"
+                    min={0}
+                    value={fee}
+                    onChange={(e) => setFee(e.target.value)}
+                    className="px-md py-sm rounded border border-light-outline bg-light-surface-container-lowest text-light-on-surface font-body text-body-md"
+                  />
+                </label>
+
+                <label className="flex flex-col gap-xs">
+                  <span className="font-label text-label-md text-light-on-surface font-semibold">Estimated Total Budget (LKR)</span>
+                  <input
+                    type="number"
+                    min={0}
+                    value={budget}
+                    onChange={(e) => setBudget(e.target.value)}
+                    className="px-md py-sm rounded border border-light-outline bg-light-surface-container-lowest text-light-on-surface font-body text-body-md"
+                  />
+                </label>
+
+                <label className="flex flex-col gap-xs">
+                  <span className="font-label text-label-md text-light-on-surface font-semibold">Payment Seat Hold Window</span>
+                  <select
+                    value={holdDuration}
+                    onChange={(e) => setHoldDuration(e.target.value)}
+                    className="px-md py-sm rounded border border-light-outline bg-light-surface-container-lowest text-light-on-surface font-body text-body-md"
+                  >
+                    <option value="10 mins">10 minutes (Standard)</option>
+                    <option value="15 mins">15 minutes</option>
+                    <option value="30 mins">30 minutes</option>
+                  </select>
+                </label>
+
+                <label className="flex flex-col gap-xs md:col-span-2">
+                  <span className="font-label text-label-md text-light-on-surface font-semibold">Refund &amp; Cancellation Policy</span>
+                  <textarea
+                    rows={2}
+                    value={refundPolicy}
+                    onChange={(e) => setRefundPolicy(e.target.value)}
+                    className="px-md py-sm rounded border border-light-outline bg-light-surface-container-lowest text-light-on-surface font-body text-body-md resize-none"
+                  />
+                </label>
+
+                <label className="flex items-center gap-sm md:col-span-2 cursor-pointer pt-xs">
+                  <input
+                    type="checkbox"
+                    checked={requireManualApproval}
+                    onChange={(e) => setRequireManualApproval(e.target.checked)}
+                    className="w-4 h-4 rounded text-light-primary"
+                  />
+                  <span className="font-body text-body-md text-light-on-surface">
+                    Require manual organizer registration approval before ticket/payment confirmation
+                  </span>
+                </label>
+              </div>
+            </div>
+          )}
+
+          {activeStep === 3 && (
+            <div className="flex flex-col gap-md">
+              <h2 className="font-headline text-headline-sm text-light-on-surface font-semibold m-0">
+                Promotional Flyer &amp; External Clearances
+              </h2>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-md">
+                <div className="flex flex-col gap-xs p-md border border-dashed border-light-outline rounded bg-light-surface-container-low/40">
+                  <span className="font-label text-label-md text-light-on-surface font-semibold">
+                    Event Flyer / Cover Image (PNG/JPG)
+                  </span>
+                  <input type="file" accept="image/*" onChange={handleImageUpload} className="text-body-sm" />
+                  {uploadingImage && <span className="text-label-sm text-light-primary">Uploading flyer to Storage...</span>}
+                  {imageName && <span className="text-label-sm text-success">Uploaded: {imageName}</span>}
+                  <input
                     type="url"
-                    placeholder="https://images.unsplash.com/... or web link"
                     value={imageUrl}
                     onChange={(e) => setImageUrl(e.target.value)}
-                    className="w-full px-md py-sm rounded bg-light-surface-container-lowest border border-light-outline text-light-on-surface font-body text-body-md focus:border-light-primary focus:ring-2 focus:ring-light-primary/20 outline-none"
+                    placeholder="Or paste HTTPS image URL..."
+                    className="px-sm py-xs rounded border border-light-outline-variant bg-light-surface-container-lowest text-body-sm mt-xs"
                   />
                 </div>
 
-                <div className="flex flex-col gap-xs">
-                  <label className="font-label text-label-md text-light-on-surface">
-                    Or Upload Flyer / Poster
-                  </label>
-                  <label className="flex items-center justify-center gap-xs px-md py-sm rounded bg-light-surface-container-lowest text-light-primary border border-light-outline-variant hover:bg-light-surface-container-low transition-colors duration-state-change font-label text-label-md cursor-pointer border-dashed border-2">
-                    <span className="material-symbols-outlined text-[20px]">add_photo_alternate</span>
-                    <span>Browse from device</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={handleImageUpload}
-                    />
-                  </label>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          {/* Section 3: Registration & Fee Rules */}
-          <section className="bg-light-surface-container-lowest border border-light-outline-variant rounded-md p-lg flex flex-col gap-md shadow-sm">
-            <h2 className="font-headline text-headline-sm text-light-on-surface">
-              3. Registration &amp; Fee Policy
-            </h2>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-md">
-              <div className="flex flex-col gap-xs">
-                <label
-                  htmlFor="event-capacity"
-                  className="font-label text-label-md text-light-on-surface"
-                >
-                  Seat Capacity
-                </label>
-                <input
-                  id="event-capacity"
-                  type="number"
-                  min="1"
-                  value={capacity}
-                  onChange={(e) => setCapacity(e.target.value)}
-                  className="w-full px-md py-sm rounded bg-light-surface-container-lowest border border-light-outline text-light-on-surface font-body text-body-md tabular-nums focus:border-light-primary focus:ring-2 focus:ring-light-primary/20 outline-none"
-                />
-              </div>
-
-              <div className="flex flex-col gap-xs">
-                <label
-                  htmlFor="event-fee"
-                  className="font-label text-label-md text-light-on-surface"
-                >
-                  Entry Fee (LKR)
-                </label>
-                <input
-                  id="event-fee"
-                  type="text"
-                  value={fee}
-                  onChange={(e) => setFee(e.target.value)}
-                  className="w-full px-md py-sm rounded bg-light-surface-container-lowest border border-light-outline text-light-on-surface font-body text-body-md tabular-nums focus:border-light-primary focus:ring-2 focus:ring-light-primary/20 outline-none"
-                />
-              </div>
-
-              <div className="flex flex-col gap-xs">
-                <label
-                  htmlFor="seat-hold"
-                  className="font-label text-label-md text-light-on-surface"
-                >
-                  Payment Seat Hold
-                </label>
-                <select
-                  id="seat-hold"
-                  value={seatHold}
-                  onChange={(e) => setSeatHold(e.target.value)}
-                  className="w-full px-md py-sm rounded bg-light-surface-container-lowest border border-light-outline text-light-on-surface font-body text-body-md focus:border-light-primary focus:ring-2 focus:ring-light-primary/20 outline-none"
-                >
-                  <option>10 minutes (Standard)</option>
-                  <option>15 minutes</option>
-                  <option>No hold (Free event)</option>
-                </select>
-              </div>
-            </div>
-
-            <label className="flex items-center gap-sm pt-sm cursor-pointer select-none">
-              <input
-                type="checkbox"
-                checked={manualApproval}
-                onChange={(e) => setManualApproval(e.target.checked)}
-                className="rounded border-light-outline text-light-primary focus:ring-light-primary w-4 h-4"
-              />
-              <span className="flex flex-col gap-xs">
-                <span className="font-label text-label-md text-light-on-surface font-medium">
-                  Require manual officer approval before payment
-                </span>
-                <span className="font-body text-body-md text-light-on-surface-variant">
-                  Verify student eligibility or team roster before releasing payment links.
-                </span>
-              </span>
-            </label>
-          </section>
-
-          {/* Section 4: Budget & Supporting Evidence */}
-          <section className="bg-light-surface-container-lowest border border-light-outline-variant rounded-md p-lg flex flex-col gap-md shadow-sm">
-            <h2 className="font-headline text-headline-sm text-light-on-surface">
-              4. Budget &amp; Supporting Documents
-            </h2>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-md">
-              <div className="flex flex-col gap-xs">
-                <label
-                  htmlFor="estimated-budget"
-                  className="font-label text-label-md text-light-on-surface"
-                >
-                  Estimated Total Budget (LKR)
-                </label>
-                <input
-                  id="estimated-budget"
-                  type="text"
-                  value={budget}
-                  onChange={(e) => setBudget(e.target.value)}
-                  className="w-full px-md py-sm rounded bg-light-surface-container-lowest border border-light-outline text-light-on-surface font-body text-body-md tabular-nums focus:border-light-primary focus:ring-2 focus:ring-light-primary/20 outline-none"
-                />
-              </div>
-
-              <div className="flex flex-col gap-xs">
-                <label
-                  htmlFor="external-approval"
-                  className="font-label text-label-md text-light-on-surface"
-                >
-                  External Approval Required?
-                </label>
-                <select
-                  id="external-approval"
-                  value={externalApproval}
-                  onChange={(e) => setExternalApproval(e.target.value)}
-                  className="w-full px-md py-sm rounded bg-light-surface-container-lowest border border-light-outline text-light-on-surface font-body text-body-md focus:border-light-primary focus:ring-2 focus:ring-light-primary/20 outline-none"
-                >
-                  <option>No — On-campus internal event</option>
-                  <option>Yes — External venue / sponsor clearance</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="border border-dashed border-light-outline rounded-md p-lg bg-light-surface-container-low flex flex-wrap items-center justify-between gap-md">
-              <div className="flex items-center gap-md">
-                <span className="material-symbols-outlined text-[24px] text-light-primary" aria-hidden="true">
-                  upload_file
-                </span>
-                <div className="flex flex-col gap-xs">
-                  <span className="font-title text-title-md text-light-on-surface font-medium">
-                    {attachedFileName ? `Attached: ${attachedFileName}` : 'Venue Booking & Equipment Quote'}
+                <div className="flex flex-col gap-xs p-md border border-dashed border-light-outline rounded bg-light-surface-container-low/40">
+                  <span className="font-label text-label-md text-light-on-surface font-semibold">
+                    Budget &amp; Safety Proposal PDF
                   </span>
-                  <span className="font-body text-body-md text-light-on-surface-variant">
-                    PDF or DOCX up to 10 MB for Lecturer Coordinator verification
-                  </span>
+                  <input type="file" accept=".pdf,.doc,.docx,image/*" onChange={handleDocumentUpload} className="text-body-sm" />
+                  {uploadingDoc && <span className="text-label-sm text-light-primary">Uploading document...</span>}
+                  {documentName && <span className="text-label-sm text-success">Attached: {documentName}</span>}
                 </div>
-              </div>
-              <label className="cursor-pointer px-md py-sm rounded bg-light-surface-container-lowest text-light-primary border border-light-outline-variant hover:bg-light-surface-container transition-colors duration-state-change font-label text-label-md">
-                {attachedFileName ? 'Change File' : 'Attach Document'}
-                <input
-                  type="file"
-                  accept=".pdf,.docx,.doc"
-                  className="hidden"
-                  onChange={handleFileChange}
-                />
-              </label>
-            </div>
-          </section>
 
-          {/* Form Actions */}
-          <div className="flex flex-wrap items-center justify-between gap-md pt-sm">
+                <label className="flex flex-col gap-xs md:col-span-2">
+                  <span className="font-label text-label-md text-light-on-surface font-semibold">External Body Clearance Requirement</span>
+                  <select
+                    value={externalApproval}
+                    onChange={(e) => setExternalApproval(e.target.value)}
+                    className="px-md py-sm rounded border border-light-outline bg-light-surface-container-lowest text-light-on-surface font-body text-body-md"
+                  >
+                    <option value="None Required">None Required (On-Campus Standard)</option>
+                    <option value="Sports Ministry">Sports Ministry Endorsement Required</option>
+                    <option value="IEEE / IET Sponsor">External Professional Chapter Clearance</option>
+                    <option value="Municipal Sound Permit">Outdoor Municipal / Safety Permit</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+          )}
+
+          {/* Footer Navigation */}
+          <div className="flex items-center justify-between pt-md border-t border-light-outline-variant">
             <button
               type="button"
-              onClick={handleSaveDraft}
-              disabled={isSubmitting}
-              className="px-md py-sm rounded bg-light-surface-container-lowest text-light-on-surface border border-light-outline-variant hover:bg-light-surface-container-low transition-colors duration-state-change font-label text-label-lg cursor-pointer"
+              onClick={() => (activeStep > 1 ? setActiveStep((activeStep - 1) as 1 | 2) : navigate('/organizer/proposals'))}
+              className="px-lg py-sm rounded border border-light-outline-variant text-light-on-surface font-label text-label-md font-semibold bg-transparent cursor-pointer"
             >
-              Save as Draft
+              {activeStep > 1 ? '← Previous Step' : 'Cancel'}
             </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="inline-flex items-center justify-center gap-xs px-lg py-sm rounded bg-light-primary text-light-on-primary hover:bg-light-primary-container transition-colors duration-state-change font-label text-label-lg cursor-pointer disabled:opacity-50"
-            >
-              Submit Proposal for Review
-            </button>
+
+            <div className="flex items-center gap-sm">
+              {activeStep < 3 ? (
+                <button
+                  type="button"
+                  onClick={() => setActiveStep((activeStep + 1) as 2 | 3)}
+                  className="px-lg py-sm rounded bg-light-primary text-light-on-primary font-label text-label-md font-semibold border-0 cursor-pointer hover:bg-light-primary-container"
+                >
+                  Continue Step →
+                </button>
+              ) : (
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="px-xl py-sm rounded bg-light-primary text-light-on-primary font-label text-label-lg font-semibold border-0 cursor-pointer hover:bg-light-primary-container"
+                >
+                  {isSubmitting ? 'Submitting Proposal...' : 'Submit Proposal for Review'}
+                </button>
+              )}
+            </div>
           </div>
         </form>
+
+        {/* Preview Card Modal */}
+        {showPreview && (
+          <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-md">
+            <div className="bg-light-surface-container-lowest rounded-lg max-w-md w-full overflow-hidden border border-light-outline-variant shadow-xl">
+              <div className="h-44 relative bg-slate-900 overflow-hidden">
+                <img
+                  src={imageUrl || fallbackPreviewImg}
+                  alt={title || 'Event Flyer Preview'}
+                  className="w-full h-full object-cover"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPreview(false)}
+                  className="absolute top-3 right-3 p-1.5 rounded-full bg-black/60 text-white border-0 cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-[18px]">close</span>
+                </button>
+              </div>
+              <div className="p-lg flex flex-col gap-sm">
+                <span className="font-label text-label-sm text-light-primary font-semibold uppercase">
+                  {category} · {selectedClub}
+                </span>
+                <h3 className="font-headline text-headline-sm text-light-on-surface font-bold m-0">
+                  {title || 'Untitled Event Proposal'}
+                </h3>
+                <p className="font-body text-body-md text-light-on-surface-variant m-0">
+                  {eventDate} · {time} · {venue}
+                </p>
+                <div className="flex items-center justify-between pt-sm border-t border-light-outline-variant">
+                  <span className="font-mono font-bold text-light-on-surface">
+                    {Number(fee) > 0 ? `LKR ${fee}` : 'Free Entry'}
+                  </span>
+                  <span className="font-label text-label-sm text-light-on-surface-variant">
+                    {capacity} seats
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </OrganizerLayout>
   );

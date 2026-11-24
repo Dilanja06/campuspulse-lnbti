@@ -1,6 +1,6 @@
 import React from 'react';
 import { CoordinatorSidebar } from './CoordinatorSidebar';
-import { TopBar } from './TopBar';
+import { ResponsiveShell } from './ResponsiveShell';
 
 interface CoordinatorLayoutProps {
   children: React.ReactNode;
@@ -10,19 +10,10 @@ interface CoordinatorLayoutProps {
 export const CoordinatorLayout: React.FC<CoordinatorLayoutProps> = ({
   children,
   unreadNotifications = true,
-}) => {
-  return (
-    <div className="min-h-screen flex bg-light-surface text-light-on-surface font-body">
-      {/* Persistent Coordinator Sidebar */}
-      <CoordinatorSidebar />
-
-      {/* Main Workspace Column */}
-      <div className="flex-1 min-w-0 flex flex-col">
-        <TopBar unreadNotifications={unreadNotifications} />
-        {children}
-      </div>
-    </div>
-  );
-};
+}) => (
+  <ResponsiveShell sidebar={<CoordinatorSidebar />} unreadNotifications={unreadNotifications}>
+    {children}
+  </ResponsiveShell>
+);
 
 export default CoordinatorLayout;

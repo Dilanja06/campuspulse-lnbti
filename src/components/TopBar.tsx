@@ -1,100 +1,56 @@
 import React from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { 
-  currentUser, 
-  currentCoordinator, 
-  currentAdmin, 
-  currentAuthority,
-  getActiveCommitteeMember 
-} from '../data/mockData';
-import { useAuth } from '../context/AuthContext';
+import { getActiveCommitteeMember } from '../data/mockData';
+import { useAuth, UserRole, getRoleHomeRoute } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { DatabaseStatusBadge } from './DatabaseStatusBadge';
 
 interface TopBarProps {
   unreadNotifications?: boolean;
+  onMenuClick?: () => void;
 }
 
-export const TopBar: React.FC<TopBarProps> = ({ unreadNotifications = true }) => {
+const ROLE_LABELS: Record<UserRole, string> = {
+  student: 'Student Workspace',
+  organizer: 'Sports Club Officer',
+  committee: 'Club Committee (5 Seats)',
+  coordinator: 'Lecturer Coordinator',
+  authority: 'University Authority',
+  verification: 'External Verification Staff',
+  admin: 'Central Administrator',
+};
+
+export const TopBar: React.FC<TopBarProps> = ({ unreadNotifications = true, onMenuClick }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, signOut, switchRole } = useAuth();
+  const { user, role, signOut, switchRole } = useAuth();
   const { isDark, toggleTheme } = useTheme();
 
   const isCommittee = location.pathname.startsWith('/committee');
-  const isAuthority = location.pathname.startsWith('/authority');
-  const isAdmin = location.pathname.startsWith('/admin');
-  const isCoordinator = location.pathname.startsWith('/coordinator');
-  const isOrganizer = location.pathname.startsWith('/organizer');
+  const isStaffWorkspace =
+    location.pathname.startsWith('/authority') ||
+    location.pathname.startsWith('/admin') ||
+    location.pathname.startsWith('/coordinator') ||
+    location.pathname.startsWith('/verification');
 
   const committeeMember = getActiveCommitteeMember();
-
-  const currentWorkspaceValue = isCommittee
-    ? 'Club Committee'
-    : isAuthority
-    ? 'University Authority'
-    : isAdmin
-    ? 'Central Administrator'
-    : isCoordinator
-    ? 'Lecturer Coordinator'
-    : isOrganizer
-    ? 'Sports Club Officer'
-    : 'Student Workspace';
+  const availableRoles: UserRole[] = user?.available_roles || [role];
+  const canSwitchWorkspace = availableRoles.length > 1;
 
   const handleWorkspaceChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const val = e.target.value;
-    if (val === 'Club Committee') {
-      switchRole('committee');
-      navigate('/committee');
-    } else if (val === 'University Authority') {
-      switchRole('authority');
-      navigate('/authority');
-    } else if (val === 'Central Administrator') {
-      switchRole('admin');
-      navigate('/admin');
-    } else if (val === 'Lecturer Coordinator') {
-      switchRole('coordinator');
-      navigate('/coordinator');
-    } else if (val === 'Sports Club Officer') {
-      switchRole('organizer');
-      navigate('/organizer');
-    } else if (val === 'Student Workspace') {
-      switchRole('student');
-      navigate('/home');
+    const nextRole = e.target.value as UserRole;
+    if (switchRole(nextRole)) {
+      navigate(getRoleHomeRoute(nextRole));
     }
   };
 
-  const userInitial = isCommittee
-    ? committeeMember.avatar_initials
-    : isAuthority
-    ? currentAuthority.avatar_initials
-    : isAdmin
-    ? currentAdmin.avatar_initials
-    : isCoordinator
-    ? currentCoordinator.avatar_initials
-    : (user?.avatar_initials || currentUser.avatar_initials);
-
-  const userName = isCommittee
-    ? committeeMember.name
-    : isAuthority
-    ? currentAuthority.name
-    : isAdmin
-    ? currentAdmin.name
-    : isCoordinator
-    ? currentCoordinator.name
-    : (user?.name || currentUser.name);
-
+  const userInitial = isCommittee ? committeeMember.avatar_initials : user?.avatar_initials || 'ST';
+  const userName = isCommittee ? committeeMember.name : user?.name || 'Campus User';
   const userSubtitle = isCommittee
-    ? `${committeeMember.club_name} ${committeeMember.role}`
-    : isAuthority
-    ? currentAuthority.role
-    : isAdmin
-    ? currentAdmin.role
-    : isCoordinator
-    ? currentCoordinator.role
-    : isOrganizer
-    ? 'Sports Club Secretary'
-    : (user?.student_id || currentUser.degree);
+    ? `${committeeMember.club_name} · ${committeeMember.role}`
+    : role === 'organizer'
+    ? user?.club_name || 'Sports Club Officer'
+    : user?.staff_id || user?.student_id || ROLE_LABELS[role];
 
   const handleSignOut = async () => {
     await signOut();
@@ -102,14 +58,25 @@ export const TopBar: React.FC<TopBarProps> = ({ unreadNotifications = true }) =>
   };
 
   return (
-    <header className="h-16 bg-light-surface-container-lowest border-b border-light-outline-variant px-xl flex items-center justify-between gap-md sticky top-0 z-20">
-      {/* Brand Logo & Workspace Selector */}
-      <div className="flex items-center gap-md">
-        <Link to="/home" className="flex items-center gap-xs no-underline group">
+    <header className="h-16 bg-light-surface-container-lowest border-b border-light-outline-variant px-md md:px-xl flex items-center justify-between gap-sm md:gap-md sticky top-0 z-20">
+      {/* Left: Mobile Menu Button + Brand Logo + Authorized Role Context */}
+      <div className="flex items-center gap-sm md:gap-md min-w-0">
+        {onMenuClick && (
+          <button
+            type="button"
+            onClick={onMenuClick}
+            aria-label="Open navigation menu"
+            className="md:hidden inline-flex items-center justify-center w-10 h-10 rounded bg-light-surface-container-low border border-light-outline-variant text-light-on-surface cursor-pointer shrink-0"
+          >
+            <span className="material-symbols-outlined text-[22px]">menu</span>
+          </button>
+        )}
+
+        <Link to={getRoleHomeRoute(role)} className="flex items-center gap-xs no-underline group shrink-0">
           <div className="w-8 h-8 rounded bg-white border border-light-outline-variant p-0.5 flex items-center justify-center shrink-0 shadow-xs group-hover:border-light-primary transition-colors">
             <img src="/lnbti-emblem.png" alt="LNBTI Emblem" className="w-full h-full object-contain" />
           </div>
-          <div className="hidden md:flex flex-col">
+          <div className="hidden lg:flex flex-col">
             <span className="font-headline text-title-sm font-bold text-light-on-surface leading-tight">
               LNBTI
             </span>
@@ -118,32 +85,51 @@ export const TopBar: React.FC<TopBarProps> = ({ unreadNotifications = true }) =>
             </span>
           </div>
         </Link>
+
         <span className="text-light-outline-variant hidden md:inline">|</span>
-        <label htmlFor="workspace-selector" className="sr-only">Workspace selector</label>
-        <div className="inline-flex items-center gap-xs bg-light-surface-container-low border border-light-outline-variant rounded px-sm py-xs">
-          <span className="material-symbols-outlined text-[18px] text-light-primary" aria-hidden="true">
-            swap_horiz
+
+        {canSwitchWorkspace ? (
+          <div className="inline-flex items-center gap-xs bg-light-surface-container-low border border-light-outline-variant rounded px-sm py-xs min-w-0">
+            <span className="material-symbols-outlined text-[18px] text-light-primary shrink-0" aria-hidden="true">
+              swap_horiz
+            </span>
+            <label htmlFor="workspace-selector" className="sr-only">
+              Authorized workspace selector
+            </label>
+            <select
+              id="workspace-selector"
+              aria-label="Authorized workspace selector"
+              value={role}
+              onChange={handleWorkspaceChange}
+              className="bg-transparent border-0 p-0 pr-md font-label text-label-md text-light-on-surface focus:ring-0 cursor-pointer outline-none truncate"
+            >
+              {availableRoles.map((r) => (
+                <option key={r} value={r}>
+                  {ROLE_LABELS[r]}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : (
+          <div className="inline-flex items-center gap-xs bg-light-surface-container-low border border-light-outline-variant rounded px-sm py-xs min-w-0">
+            <span className="material-symbols-outlined text-[16px] text-light-primary shrink-0" aria-hidden="true">
+              verified_user
+            </span>
+            <span className="font-label text-label-md text-light-on-surface font-medium truncate">
+              {ROLE_LABELS[role]}
+            </span>
+          </div>
+        )}
+
+        {user?.is_demo_session && (
+          <span className="hidden xl:inline-flex items-center px-sm py-0.5 rounded-full bg-warning-container text-on-warning-container text-[11px] font-mono font-bold">
+            SANDBOX
           </span>
-          <select 
-            id="workspace-selector"
-            aria-label="Workspace selector"
-            value={currentWorkspaceValue}
-            onChange={handleWorkspaceChange}
-            className="bg-transparent border-0 p-0 pr-md font-label text-label-md text-light-on-surface focus:ring-0 cursor-pointer outline-none"
-          >
-            <option value="Student Workspace">Student Workspace</option>
-            <option value="Sports Club Officer">Sports Club Officer</option>
-            <option value="Club Committee">Club Committee (5 Seats)</option>
-            <option value="Lecturer Coordinator">Lecturer Coordinator</option>
-            <option value="University Authority">University Authority</option>
-            <option value="Central Administrator">Central Administrator</option>
-          </select>
-        </div>
+        )}
       </div>
 
-      {/* Right Controls: Database Health, Notifications, User Avatar & Sign Out */}
-      <div className="flex items-center gap-sm sm:gap-md">
-        {/* Live Database vs Fallback Badge */}
+      {/* Right Controls: Database Health, Notifications, User Avatar, Theme Toggle & Sign Out */}
+      <div className="flex items-center gap-xs sm:gap-md shrink-0">
         <DatabaseStatusBadge />
 
         <Link
@@ -165,9 +151,10 @@ export const TopBar: React.FC<TopBarProps> = ({ unreadNotifications = true }) =>
 
         {/* Profile Chip */}
         <button
-          onClick={() => (!isAuthority && !isAdmin && !isCoordinator ? navigate('/my-profile') : null)}
+          type="button"
+          onClick={() => (!isStaffWorkspace ? navigate('/my-profile') : null)}
           className={`flex items-center gap-sm pl-sm border-l border-light-outline-variant text-left bg-transparent border-0 p-0 ${
-            !isAuthority && !isAdmin && !isCoordinator ? 'cursor-pointer group' : 'cursor-default'
+            !isStaffWorkspace ? 'cursor-pointer group' : 'cursor-default'
           }`}
         >
           <div className="w-9 h-9 rounded-full bg-light-primary-container text-light-on-primary-container flex items-center justify-center font-label text-label-md font-bold shadow-sm">
@@ -183,8 +170,9 @@ export const TopBar: React.FC<TopBarProps> = ({ unreadNotifications = true }) =>
           </div>
         </button>
 
-        {/* Theme Toggle (Light / Dark) */}
+        {/* Theme Toggle */}
         <button
+          type="button"
           onClick={toggleTheme}
           title={isDark ? 'Switch to Light Theme' : 'Switch to Dark Theme'}
           aria-label={isDark ? 'Switch to Light Theme' : 'Switch to Dark Theme'}
@@ -195,8 +183,9 @@ export const TopBar: React.FC<TopBarProps> = ({ unreadNotifications = true }) =>
           </span>
         </button>
 
-        {/* Sign Out Button */}
+        {/* Sign Out */}
         <button
+          type="button"
           onClick={handleSignOut}
           title="Sign out of CampusPulse"
           aria-label="Sign out"

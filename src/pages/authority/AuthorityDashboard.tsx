@@ -173,7 +173,7 @@ export const AuthorityDashboard: React.FC = () => {
                   </div>
                   <div className="flex items-center justify-between gap-md pt-md border-t border-light-outline-variant">
                     <span className="font-label text-label-sm text-on-success-container">
-                      Endorsed by {prop.coordinator_endorsement?.by || 'Dr. Kavinda Silva'}
+                      Endorsed by {prop.coordinator_endorsement?.name || prop.coordinator_endorsement?.by || 'Dr. Kavinda Silva'}
                     </span>
                     <Link
                       to={`/authority/stages/${prop.id}/sign-off`}

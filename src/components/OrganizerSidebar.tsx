@@ -1,22 +1,32 @@
 import React, { useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { currentUser } from '../data/mockData';
+import { useAuth } from '../context/AuthContext';
 import { dataService } from '../services/dataService';
 
 export const OrganizerSidebar: React.FC = () => {
-  const [pendingProposalsCount, setPendingProposalsCount] = useState(2);
-  const [pendingRegistrationsCount, setPendingRegistrationsCount] = useState(3);
+  const { user } = useAuth();
+  const [pendingProposalsCount, setPendingProposalsCount] = useState(0);
+  const [pendingRegistrationsCount, setPendingRegistrationsCount] = useState(0);
 
   useEffect(() => {
     const fetchCounts = async () => {
       try {
-        const proposals = await dataService.getProposals();
-        const inReview = proposals.filter(p => p.status === 'Higher Authority' || p.status === 'Revision Requested' || p.status === 'In Review' || p.status === 'Committee Review').length;
-        setPendingProposalsCount(inReview || 2);
+        const [proposals, registrations] = await Promise.all([
+          dataService.getProposals(),
+          dataService.getRegistrations(),
+        ]);
+        const inReview = proposals.filter(
+          (p) =>
+            p.status === 'Higher Authority' ||
+            p.status === 'Revision Requested' ||
+            p.status === 'In Review' ||
+            p.status === 'Committee Review' ||
+            p.status === 'Pending Review'
+        ).length;
+        setPendingProposalsCount(inReview);
 
-        const registrations = await dataService.getRegistrations();
-        const pendingRegs = registrations.filter(r => r.status === 'pending').length;
-        setPendingRegistrationsCount(pendingRegs || 3);
+        const pendingRegs = registrations.filter((r) => r.status === 'pending').length;
+        setPendingRegistrationsCount(pendingRegs);
       } catch (err) {
         console.warn('Sidebar counts error:', err);
       }
@@ -47,6 +57,16 @@ export const OrganizerSidebar: React.FC = () => {
       to: '/organizer/registrations',
       icon: 'how_to_reg',
       badge: pendingRegistrationsCount > 0 ? pendingRegistrationsCount : undefined,
+    },
+    {
+      label: 'QR Attendance',
+      to: '/organizer/attendance',
+      icon: 'qr_code_scanner',
+    },
+    {
+      label: 'Refunds & Finance',
+      to: '/organizer/refunds',
+      icon: 'payments',
     },
     {
       label: 'Club & Members',
@@ -131,7 +151,7 @@ export const OrganizerSidebar: React.FC = () => {
           Authorized Organizer
         </span>
         <span className="font-mono text-mono-md text-light-on-surface-variant font-medium">
-          {currentUser.student_id}
+          {user?.student_id || user?.email || 'Officer ID'}
         </span>
       </div>
     </aside>

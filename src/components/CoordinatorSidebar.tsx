@@ -1,17 +1,18 @@
 import React, { useEffect, useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { currentCoordinator } from '../data/mockData';
+import { useAuth } from '../context/AuthContext';
 import { dataService } from '../services/dataService';
 
 export const CoordinatorSidebar: React.FC = () => {
-  const [pendingReviewCount, setPendingReviewCount] = useState(3);
+  const { user } = useAuth();
+  const [pendingReviewCount, setPendingReviewCount] = useState(0);
 
   useEffect(() => {
     const fetchCounts = async () => {
       try {
         const proposals = await dataService.getProposals();
-        const pending = proposals.filter((p) => p.status === 'Pending Review' || p.status === 'Higher Authority' || p.stage === 2).length;
-        setPendingReviewCount(pending || 3);
+        const pending = proposals.filter((p) => p.status === 'Pending Review' || p.stage === 2).length;
+        setPendingReviewCount(pending);
       } catch (err) {
         console.warn('CoordinatorSidebar count error:', err);
       }
@@ -115,7 +116,7 @@ export const CoordinatorSidebar: React.FC = () => {
           Assigned Coordinator
         </span>
         <span className="font-mono text-mono-md text-light-on-surface-variant font-medium">
-          {currentCoordinator.faculty_id}
+          {user?.staff_id || 'STAFF/ENG/0042'}
         </span>
       </div>
     </aside>

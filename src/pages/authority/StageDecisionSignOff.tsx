@@ -208,7 +208,7 @@ export const StageDecisionSignOff: React.FC = () => {
                 </li>
                 <li className="py-sm flex items-center justify-between gap-md">
                   <span className="font-body text-body-md text-light-on-surface">
-                    2. {proposal.coordinator_endorsement?.by || 'Dr. Kavinda Silva'} (Coordinator)
+                    2. {proposal.coordinator_endorsement?.name || proposal.coordinator_endorsement?.by || 'Dr. Kavinda Silva'} (Coordinator)
                   </span>
                   <span className="font-label text-label-sm text-on-success-container bg-success-container px-sm py-xs rounded-full whitespace-nowrap">
                     Endorsed · {proposal.coordinator_endorsement?.date || '03 Nov'}

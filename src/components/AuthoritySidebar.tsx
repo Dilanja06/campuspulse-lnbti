@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
-import { currentAuthority } from '../data/mockData';
+import { useAuth } from '../context/AuthContext';
 import { dataService } from '../services/dataService';
 
 export const AuthoritySidebar: React.FC = () => {
-  const [pendingCount, setPendingCount] = useState<number>(3);
+  const { user } = useAuth();
+  const [pendingCount, setPendingCount] = useState<number>(0);
 
   useEffect(() => {
     const fetchCount = async () => {
@@ -105,7 +106,7 @@ export const AuthoritySidebar: React.FC = () => {
           Higher University Authority
         </span>
         <span className="font-mono text-mono-md text-light-on-surface-variant font-medium">
-          {currentAuthority.staff_id}
+          {user?.staff_id || 'AUTH/DSA/001'}
         </span>
       </div>
     </aside>

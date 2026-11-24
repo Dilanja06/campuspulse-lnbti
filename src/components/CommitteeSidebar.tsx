@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { dataService } from '../services/dataService';
 import { CommitteeMemberProfile } from '../types';
+import { isDemoModeEnabled } from '../context/AuthContext';
 
 interface CommitteeSidebarProps {
   onRoleChanged?: () => void;
@@ -85,23 +86,29 @@ export const CommitteeSidebar: React.FC<CommitteeSidebarProps> = ({ onRoleChange
           </div>
         </div>
 
-        {/* Five Committee Decision-Makers Switcher */}
+        {/* Five Committee Decision-Makers Switcher (Demo Sandbox Only) / Locked Seat Display in Production */}
         <div className="flex flex-col gap-xs bg-light-surface-container-low p-sm rounded border border-light-outline-variant">
           <label htmlFor="committee-role-select" className="font-label text-label-sm text-light-on-surface-variant font-medium">
-            Active Committee Seat
+            {isDemoModeEnabled ? 'Active Committee Seat (Sandbox)' : 'Assigned Committee Seat'}
           </label>
-          <select
-            id="committee-role-select"
-            value={currentMember.id}
-            onChange={handleRoleSelect}
-            className="w-full bg-light-surface-container-lowest border border-light-outline text-light-on-surface rounded px-sm py-xs font-label text-label-md focus:border-light-primary focus:ring-1 focus:ring-light-primary outline-none"
-          >
-            {members.map((m, index) => (
-              <option key={m.id} value={m.id}>
-                {index + 1}. {m.role} ({m.name})
-              </option>
-            ))}
-          </select>
+          {isDemoModeEnabled ? (
+            <select
+              id="committee-role-select"
+              value={currentMember.id}
+              onChange={handleRoleSelect}
+              className="w-full bg-light-surface-container-lowest border border-light-outline text-light-on-surface rounded px-sm py-xs font-label text-label-md focus:border-light-primary focus:ring-1 focus:ring-light-primary outline-none"
+            >
+              {members.map((m, index) => (
+                <option key={m.id} value={m.id}>
+                  {index + 1}. {m.role} ({m.name})
+                </option>
+              ))}
+            </select>
+          ) : (
+            <div className="px-xs py-0.5 font-label text-label-md text-light-on-surface font-semibold">
+              {currentMember.role} · {currentMember.name}
+            </div>
+          )}
         </div>
 
         {/* Navigation items */}

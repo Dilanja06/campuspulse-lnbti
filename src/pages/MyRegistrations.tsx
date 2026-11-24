@@ -1,223 +1,213 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { AppLayout } from '../components/AppLayout';
 import { StatusChip } from '../components/StatusChip';
-import { RegistrationItem } from '../types';
+import { useAuth } from '../context/AuthContext';
 import { dataService } from '../services/dataService';
+import { RegistrationItem } from '../types';
+import { getEventCoverImage } from '../utils/eventImages';
+
+function formatHoldRemaining(expiresAt?: string): string | null {
+  if (!expiresAt) return null;
+  const diffMs = new Date(expiresAt).getTime() - Date.now();
+  if (Number.isNaN(diffMs)) return null;
+  if (diffMs <= 0) return 'Expired';
+  const mins = Math.floor(diffMs / 60000);
+  const secs = Math.floor((diffMs % 60000) / 1000);
+  return `${mins}m ${String(secs).padStart(2, '0')}s left`;
+}
 
 export const MyRegistrations: React.FC = () => {
-  const navigate = useNavigate();
+  const { user } = useAuth();
   const [registrations, setRegistrations] = useState<RegistrationItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'all' | 'confirmed' | 'payment_pending' | 'pending' | 'rejected' | 'cancelled'>('all');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [, setTick] = useState(0);
 
-  useEffect(() => {
-    async function loadRegs() {
-      setLoading(true);
-      const data = await dataService.getRegistrations();
+  const loadRegs = async () => {
+    setLoading(true);
+    try {
+      const data = await dataService.getRegistrations({
+        userId: user?.id,
+        userEmail: user?.email,
+      });
       setRegistrations(data);
+    } finally {
       setLoading(false);
     }
+  };
+
+  useEffect(() => {
     loadRegs();
+  }, [user?.id, user?.email]);
+
+  useEffect(() => {
+    const t = window.setInterval(() => setTick((c) => c + 1), 1000);
+    return () => window.clearInterval(t);
   }, []);
 
-  const handleCancelHold = async (regId: string, eventTitle: string) => {
-    if (window.confirm(`Are you sure you want to cancel your seat hold for "${eventTitle}"? Your reserved seat will be opened to other students.`)) {
-      await dataService.cancelRegistration(regId);
-      setRegistrations((prev) =>
-        prev.map((r) => (r.id === regId ? { ...r, status: 'cancelled' } : r))
-      );
-    }
+  const handleCancel = async (reg: RegistrationItem) => {
+    if (!window.confirm(`Cancel your registration ${reg.reg_code} for ${reg.event_title}?`)) return;
+    await dataService.cancelRegistration(reg.id);
+    await loadRegs();
   };
 
-  const filteredRegistrations = registrations.filter((reg) => {
-    if (activeTab === 'all') return true;
-    return reg.status === activeTab;
+  const filtered = registrations.filter((r) => {
+    if (statusFilter === 'all') return true;
+    return r.status === statusFilter;
   });
 
-  const counts = {
-    all: registrations.length,
-    confirmed: registrations.filter(r => r.status === 'confirmed').length,
-    payment_pending: registrations.filter(r => r.status === 'payment_pending').length,
-    pending: registrations.filter(r => r.status === 'pending').length,
-    rejected: registrations.filter(r => r.status === 'rejected').length,
-    cancelled: registrations.filter(r => r.status === 'cancelled').length,
-  };
-
-  const tabs: Array<{ key: typeof activeTab; label: string; count: number }> = [
-    { key: 'all', label: 'All', count: counts.all },
-    { key: 'confirmed', label: 'Confirmed', count: counts.confirmed },
-    { key: 'payment_pending', label: 'Payment Pending', count: counts.payment_pending },
-    { key: 'pending', label: 'Pending Review', count: counts.pending },
-    { key: 'rejected', label: 'Rejected', count: counts.rejected },
-    { key: 'cancelled', label: 'Cancelled', count: counts.cancelled },
-  ];
-
   return (
-    <AppLayout registrationCount={registrations.length}>
-      {/* Header */}
-      <div className="flex flex-col gap-xs">
-        <h1 className="font-headline text-headline-lg text-light-on-surface font-bold">
-          My Registrations
-        </h1>
-        <p className="font-body text-body-md text-light-on-surface-variant">
-          Track entry passes, payment clearance, advisor reviews, and attendance verification.
-        </p>
-      </div>
-
-      {/* Filter Tabs */}
-      <div className="flex items-center gap-xs overflow-x-auto pb-xs">
-        {tabs.map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            className={`inline-flex items-center gap-xs px-md py-xs rounded-full text-label-md font-label font-medium transition-all cursor-pointer whitespace-nowrap border-0 ${
-              activeTab === tab.key
-                ? 'bg-light-primary text-light-on-primary shadow-sm font-semibold'
-                : 'bg-light-surface-container-lowest border border-light-outline-variant text-light-on-surface-variant hover:bg-light-surface-container-low'
-            }`}
-          >
-            <span>{tab.label}</span>
-            <span
-              className={`inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full text-xs font-mono tabular-nums ${
-                activeTab === tab.key
-                  ? 'bg-white/20 text-white'
-                  : 'bg-light-surface-container-high text-light-on-surface-variant'
-              }`}
-            >
-              {tab.count}
-            </span>
-          </button>
-        ))}
-      </div>
-
-      {/* Registrations List */}
-      <div className="flex flex-col gap-md">
-        {loading ? (
-          <div className="bg-light-surface-container-lowest border border-light-outline-variant rounded-md p-xl text-center">
-            <p className="font-body text-body-md text-light-on-surface-variant">Connecting to Supabase...</p>
-          </div>
-        ) : filteredRegistrations.length === 0 ? (
-          <div className="bg-light-surface-container-lowest border border-light-outline-variant rounded-md p-xl text-center flex flex-col items-center gap-sm">
-            <span className="material-symbols-outlined text-[36px] text-light-outline">
-              confirmation_number
-            </span>
-            <span className="font-title text-title-md text-light-on-surface font-semibold">
-              No registrations found
-            </span>
-            <p className="font-body text-body-md text-light-on-surface-variant">
-              There are no event registrations in this category.
+    <AppLayout>
+      <main className="p-lg md:p-xl max-w-[1400px] w-full mx-auto flex flex-col gap-xl">
+        <header className="flex flex-col md:flex-row md:items-center justify-between gap-md">
+          <div className="flex flex-col gap-xs">
+            <h1 className="font-headline text-headline-lg text-light-on-surface font-semibold m-0">
+              My Registrations &amp; Passes (S08)
+            </h1>
+            <p className="font-body text-body-md text-light-on-surface-variant m-0">
+              Manage active seat holds, payment obligations, dynamic QR entry tickets, and cancellation refunds.
             </p>
           </div>
-        ) : (
-          filteredRegistrations.map((reg) => (
-            <div
-              key={reg.id}
-              onClick={() => navigate(`/events/${reg.event_id}`)}
-              className="bg-light-surface-container-lowest border border-light-outline-variant rounded-md p-lg flex flex-col md:flex-row md:items-center justify-between gap-lg shadow-sm hover:border-light-primary hover:shadow-md transition-all cursor-pointer group"
+          <Link
+            to="/events"
+            className="px-md py-sm rounded bg-light-primary text-light-on-primary font-label text-label-md font-semibold no-underline hover:bg-light-primary-container w-fit"
+          >
+            Browse More Events
+          </Link>
+        </header>
+
+        <div className="flex items-center gap-xs flex-wrap">
+          {[
+            { key: 'all', label: 'All Registrations' },
+            { key: 'payment_pending', label: 'Payment Hold' },
+            { key: 'pending', label: 'Pending Approval' },
+            { key: 'confirmed', label: 'Confirmed' },
+            { key: 'checked_in', label: 'Checked In' },
+            { key: 'cancelled', label: 'Cancelled' },
+          ].map((tab) => (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => setStatusFilter(tab.key)}
+              className={`px-md py-xs rounded-full font-label text-label-md border cursor-pointer transition-colors ${
+                statusFilter === tab.key
+                  ? 'bg-light-primary text-light-on-primary border-light-primary'
+                  : 'bg-light-surface-container-lowest text-light-on-surface-variant border-light-outline-variant hover:bg-light-surface-container-low'
+              }`}
             >
-              {/* Left Details */}
-              <div className="flex flex-col gap-sm flex-1">
-                <div className="flex items-center gap-sm">
-                  <StatusChip label={reg.status.replace('_', ' ')} status={reg.status} />
-                  <span className="font-mono text-mono-md text-light-on-surface-variant">
-                    {reg.reg_code}
-                  </span>
-                </div>
+              {tab.label}
+            </button>
+          ))}
+        </div>
 
-                <div className="flex flex-col">
-                  <h3 className="font-headline text-title-lg text-light-on-surface font-semibold m-0 group-hover:text-light-primary transition-colors">
-                    <span className="text-light-on-surface group-hover:text-light-primary">
-                      {reg.event_title}
-                    </span>
-                  </h3>
-                  <span className="font-label text-label-sm text-light-secondary font-semibold mt-0.5">
-                    {reg.club_name}
-                  </span>
-                </div>
+        {loading ? (
+          <div className="p-xl text-center text-light-on-surface-variant">Loading registrations...</div>
+        ) : filtered.length === 0 ? (
+          <section className="p-xl bg-light-surface-container-lowest border border-light-outline-variant rounded-md text-center text-light-on-surface-variant">
+            No registrations in this category.
+          </section>
+        ) : (
+          <div className="flex flex-col gap-md">
+            {filtered.map((reg) => {
+              const holdCountdown =
+                reg.status === 'payment_pending' ? formatHoldRemaining(reg.hold_expires_at) : null;
+              return (
+                <article
+                  key={reg.id}
+                  className="bg-light-surface-container-lowest border border-light-outline-variant rounded-md p-md md:p-lg flex flex-col md:flex-row md:items-center justify-between gap-md shadow-sm"
+                >
+                  <div className="flex items-start gap-md">
+                    <img
+                      src={getEventCoverImage({ id: reg.event_id, image_url: reg.image_url, title: reg.event_title })}
+                      alt={reg.event_title}
+                      className="w-20 h-20 rounded object-cover shrink-0 bg-slate-800 hidden sm:block"
+                    />
+                    <div className="flex flex-col gap-xs">
+                      <div className="flex items-center gap-sm flex-wrap">
+                        <span className="font-mono text-mono-sm text-light-primary font-semibold">
+                          {reg.reg_code}
+                        </span>
+                        <StatusChip
+                          label={reg.status === 'checked_in' ? 'Checked In' : reg.status.replace('_', ' ')}
+                          status={reg.status === 'checked_in' ? 'confirmed' : reg.status}
+                        />
+                        {holdCountdown && (
+                          <span
+                            className={`px-xs py-0.5 rounded font-mono text-mono-sm font-semibold ${
+                              holdCountdown === 'Expired'
+                                ? 'bg-light-error-container text-light-on-error-container'
+                                : 'bg-warning-container text-on-warning-container'
+                            }`}
+                          >
+                            Hold: {holdCountdown}
+                          </span>
+                        )}
+                      </div>
 
-                <div className="flex flex-wrap items-center gap-x-lg gap-y-xs text-body-md text-light-on-surface-variant">
-                  <div className="flex items-center gap-xs">
-                    <span className="material-symbols-outlined text-[18px]">calendar_today</span>
-                    <span>{reg.date} · {reg.time}</span>
+                      <h2 className="font-title text-title-lg text-light-on-surface font-semibold m-0">
+                        {reg.event_title}
+                      </h2>
+                      <p className="font-body text-body-sm text-light-on-surface-variant m-0">
+                        {reg.club_name} · {reg.date} · {reg.time} · {reg.venue}
+                      </p>
+                      {reg.activity && (
+                        <span className="font-label text-label-sm text-light-on-surface-variant">
+                          Track: {reg.activity} · Fee: {reg.fee > 0 ? `LKR ${reg.fee}` : 'Free'}
+                        </span>
+                      )}
+                      {reg.status === 'rejected' && reg.rejection_reason && (
+                        <div className="p-sm rounded bg-light-error-container/50 text-light-on-error-container text-label-sm">
+                          <strong>Decline Reason:</strong> {reg.rejection_reason}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-xs">
-                    <span className="material-symbols-outlined text-[18px]">location_on</span>
-                    <span>{reg.venue}</span>
+
+                  <div className="flex flex-wrap items-center gap-xs shrink-0">
+                    {reg.status === 'payment_pending' && (
+                      <Link
+                        to={`/payments?reg=${reg.reg_code}&event=${encodeURIComponent(reg.event_title)}&amount=${reg.fee}`}
+                        className="px-md py-xs rounded bg-warning text-slate-950 font-label text-label-md font-bold no-underline"
+                      >
+                        Complete Payment
+                      </Link>
+                    )}
+
+                    {(reg.status === 'confirmed' || reg.status === 'checked_in') && (
+                      <Link
+                        to="/my-qr"
+                        className="px-md py-xs rounded bg-light-primary text-light-on-primary font-label text-label-md font-semibold no-underline"
+                      >
+                        Show QR Pass
+                      </Link>
+                    )}
+
+                    {reg.status === 'cancelled' && reg.fee > 0 && (
+                      <Link
+                        to="/refunds"
+                        className="px-md py-xs rounded bg-info-container text-on-info-container font-label text-label-md font-semibold no-underline"
+                      >
+                        View Refund Status
+                      </Link>
+                    )}
+
+                    {(reg.status === 'confirmed' || reg.status === 'pending' || reg.status === 'payment_pending') && (
+                      <button
+                        type="button"
+                        onClick={() => handleCancel(reg)}
+                        className="px-md py-xs rounded border border-light-outline-variant bg-transparent text-light-error font-label text-label-md font-semibold cursor-pointer hover:bg-light-error-container/30"
+                      >
+                        Cancel Seat
+                      </button>
+                    )}
                   </div>
-                </div>
-
-                {reg.rejection_reason && (
-                  <div className="bg-light-error-container text-light-on-error-container p-sm rounded text-label-sm flex items-start gap-xs mt-xs">
-                    <span className="material-symbols-outlined text-[16px] shrink-0 mt-0.5">error</span>
-                    <span>Reason: {reg.rejection_reason}</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Right Actions */}
-              <div 
-                onClick={(e) => e.stopPropagation()}
-                className="flex flex-col sm:flex-row items-stretch sm:items-center gap-sm shrink-0"
-              >
-                {reg.status === 'confirmed' && (
-                  <button
-                    onClick={() => navigate('/my-qr')}
-                    className="inline-flex items-center justify-center gap-xs px-md py-sm rounded bg-light-surface-container-lowest text-light-primary border border-light-outline-variant font-label text-label-md font-bold hover:bg-light-surface-container-low transition-colors cursor-pointer"
-                  >
-                    <span className="material-symbols-outlined text-[20px]">qr_code</span>
-                    <span>View Attendance QR</span>
-                  </button>
-                )}
-
-                {reg.status === 'payment_pending' && (
-                  <>
-                    <button
-                      onClick={() => navigate('/payment')}
-                      className="inline-flex items-center justify-center gap-xs px-md py-sm rounded bg-warning text-on-warning font-label text-label-md font-bold hover:opacity-95 transition-all cursor-pointer border-0 shadow-sm"
-                    >
-                      <span className="material-symbols-outlined text-[20px]">payment</span>
-                      <span>Complete Payment · LKR {reg.fee}</span>
-                    </button>
-                    <button
-                      onClick={() => handleCancelHold(reg.id, reg.event_title)}
-                      className="px-md py-sm rounded bg-transparent text-light-on-surface-variant hover:text-light-error text-label-md font-medium border-0 cursor-pointer"
-                    >
-                      Cancel Hold
-                    </button>
-                  </>
-                )}
-
-                {reg.status === 'pending' && (
-                  <span className="inline-flex items-center gap-xs text-label-md font-label text-info px-md py-sm rounded bg-info-container">
-                    <span className="material-symbols-outlined text-[18px]">pending</span>
-                    <span>Pending Staff Review</span>
-                  </span>
-                )}
-
-                {reg.status === 'cancelled' && (
-                  <Link
-                    to="/refund-status"
-                    className="font-label text-label-md text-light-secondary hover:underline flex items-center gap-xs no-underline font-semibold"
-                  >
-                    <span>Check Refund Status</span>
-                    <span className="material-symbols-outlined text-[18px]">arrow_forward</span>
-                  </Link>
-                )}
-
-                {reg.status === 'rejected' && (
-                  <Link
-                    to={`/events/${reg.event_id}`}
-                    className="px-md py-sm rounded bg-light-surface-container-low text-light-primary border border-light-outline-variant font-label text-label-md font-semibold hover:bg-light-surface-container no-underline"
-                  >
-                    View Event Info
-                  </Link>
-                )}
-              </div>
-            </div>
-          ))
+                </article>
+              );
+            })}
+          </div>
         )}
-      </div>
+      </main>
     </AppLayout>
   );
 };

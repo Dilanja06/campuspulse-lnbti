@@ -1,216 +1,251 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { OrganizerLayout } from '../../components/OrganizerLayout';
-import { dataService } from '../../services/dataService';
 import { EventItem } from '../../types';
+import { dataService } from '../../services/dataService';
+import { getEventCoverImage } from '../../utils/eventImages';
 
 export const ManageEvents: React.FC = () => {
   const [events, setEvents] = useState<EventItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [editingEvent, setEditingEvent] = useState<EventItem | null>(null);
+  const [editCapacity, setEditCapacity] = useState('100');
+  const [editFee, setEditFee] = useState('0');
+  const [editVenue, setEditVenue] = useState('');
+  const [savingEdit, setSavingEdit] = useState(false);
+
+  const loadEvents = async () => {
+    setLoading(true);
+    try {
+      const list = await dataService.getEvents();
+      setEvents(list);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchEvents = async () => {
-      try {
-        const allEvents = await dataService.getEvents();
-        // Filter sports council events or relevant managed events
-        const sportsEvents = allEvents.filter(
-          (e) => e.club_id === 'club-sports' || e.id === 'evt-1' || e.id === 'evt-7' || e.id === 'evt-8'
-        );
-        setEvents(sportsEvents);
-      } catch (err) {
-        console.warn('Error fetching events:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchEvents();
+    loadEvents();
   }, []);
+
+  const handleToggleClose = async (ev: EventItem) => {
+    if (ev.status === 'cancelled') return;
+    const nextStatus = ev.status === 'published' ? 'closed' : 'published';
+    await dataService.updateEvent(ev.id, { status: nextStatus });
+    await loadEvents();
+  };
+
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingEvent) return;
+    setSavingEdit(true);
+    try {
+      await dataService.updateEvent(editingEvent.id, {
+        capacity: Number(editCapacity) || editingEvent.capacity,
+        fee: Number(editFee) || 0,
+        venue: editVenue.trim() || editingEvent.venue,
+      });
+      setEditingEvent(null);
+      await loadEvents();
+    } finally {
+      setSavingEdit(false);
+    }
+  };
 
   return (
     <OrganizerLayout>
-      <main className="flex-1 p-xl max-w-[1280px] w-full mx-auto flex flex-col gap-lg">
-        <div className="flex flex-wrap items-end justify-between gap-md">
+      <main className="p-lg md:p-xl max-w-[1400px] w-full mx-auto flex flex-col gap-xl">
+        <header className="flex flex-col md:flex-row md:items-center justify-between gap-md">
           <div className="flex flex-col gap-xs">
-            <h1 className="font-headline text-headline-lg text-light-on-surface">
-              Manage Events
+            <h1 className="font-headline text-headline-lg text-light-on-surface font-semibold">
+              Manage Published Events (O06)
             </h1>
             <p className="font-body text-body-md text-light-on-surface-variant">
-              Monitor live capacity, toggle registration windows, and open event attendance rosters.
+              Control capacity, registration availability, check-in scanners, and official event cancellations.
             </p>
           </div>
-          <Link
-            to="/organizer/proposals/new"
-            className="inline-flex items-center justify-center gap-xs px-md py-sm rounded bg-light-primary text-light-on-primary hover:bg-light-primary-container transition-colors duration-state-change no-underline"
-          >
-            <span className="material-symbols-outlined text-[18px]" aria-hidden="true">
-              add
-            </span>
-            <span className="font-label text-label-lg whitespace-nowrap">
-              New Proposal
-            </span>
-          </Link>
-        </div>
+          <div className="flex items-center gap-sm">
+            <Link
+              to="/organizer/attendance"
+              className="inline-flex items-center gap-xs px-md py-sm rounded bg-light-surface-container-lowest border border-light-outline-variant text-light-on-surface font-label text-label-md font-semibold no-underline hover:bg-light-surface-container-low"
+            >
+              <span className="material-symbols-outlined text-[18px]">qr_code_scanner</span>
+              <span>QR Scanner Terminal</span>
+            </Link>
+            <Link
+              to="/organizer/proposals"
+              className="inline-flex items-center gap-xs px-md py-sm rounded bg-light-primary text-light-on-primary font-label text-label-md font-semibold no-underline hover:bg-light-primary-container"
+            >
+              <span className="material-symbols-outlined text-[18px]">publish</span>
+              <span>Publish Approved Proposal</span>
+            </Link>
+          </div>
+        </header>
 
-        {/* Managed Events List */}
-        <section aria-label="Sports Club events" className="flex flex-col gap-md">
-          {/* Event 1: University Indoor Games Day */}
-          <article className="bg-light-surface-container-lowest border border-light-outline-variant rounded-md overflow-hidden flex flex-col md:flex-row shadow-sm">
-            <img
-              src="https://images.unsplash.com/photo-1546519638-68e109498ffc?auto=format&fit=crop&w=800&q=80"
-              alt="University Indoor Games Day"
-              className="w-full md:w-64 h-48 md:h-auto object-cover shrink-0"
-            />
-            <div className="p-lg flex-1 flex flex-col justify-between gap-md">
-              <div className="flex flex-wrap items-start justify-between gap-md">
-                <div className="flex flex-col gap-xs">
-                  <div className="flex flex-wrap items-center gap-sm">
-                    <span className="inline-flex items-center gap-xs px-sm py-xs rounded-full bg-success-container text-on-success-container">
-                      <span className="material-symbols-outlined text-[14px]" aria-hidden="true">
-                        check_circle
-                      </span>
-                      <span className="font-label text-label-sm">
-                        Registration Open
-                      </span>
-                    </span>
-                    <span className="font-mono text-mono-md text-light-on-surface-variant tabular-nums">
-                      EVT-2026-041
+        <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-lg">
+          {loading ? (
+            <div className="col-span-full p-xl text-center text-light-on-surface-variant">Loading events...</div>
+          ) : (
+            events.map((ev) => {
+              const fillPct = ev.capacity > 0 ? Math.min(100, Math.round((ev.registered / ev.capacity) * 100)) : 0;
+              return (
+                <article
+                  key={ev.id}
+                  className="bg-light-surface-container-lowest border border-light-outline-variant rounded-md overflow-hidden shadow-sm flex flex-col"
+                >
+                  <div className="h-36 relative bg-slate-900 overflow-hidden">
+                    <img
+                      src={getEventCoverImage(ev)}
+                      alt={ev.title}
+                      className="w-full h-full object-cover"
+                    />
+                    <span
+                      className={`absolute top-3 right-3 px-sm py-0.5 rounded-full font-label text-label-sm font-semibold ${
+                        ev.status === 'published'
+                          ? 'bg-success-container text-on-success-container'
+                          : ev.status === 'closed'
+                          ? 'bg-warning-container text-on-warning-container'
+                          : 'bg-light-error-container text-light-on-error-container'
+                      }`}
+                    >
+                      {ev.status.toUpperCase()}
                     </span>
                   </div>
-                  <h2 className="font-title text-title-lg text-light-on-surface font-semibold">
-                    University Indoor Games Day
-                  </h2>
-                  <p className="font-body text-body-md text-light-on-surface-variant tabular-nums">
-                    15 Nov 2026 · 09:00 AM – 04:30 PM · Main Hall · Entry Fee: LKR 500
-                  </p>
-                </div>
 
-                <div className="flex flex-col md:items-end gap-xs">
-                  <span className="font-mono text-mono-md text-light-on-surface font-semibold tabular-nums">
-                    28 of 40 seats filled
-                  </span>
-                  <span className="font-label text-label-sm text-light-secondary flex items-center gap-xs">
-                    <span className="material-symbols-outlined text-[14px]">qr_code_scanner</span>
-                    Dynamic QR Attendance Validation Enabled
-                  </span>
-                </div>
-              </div>
+                  <div className="p-lg flex flex-col gap-md flex-1 justify-between">
+                    <div className="flex flex-col gap-xs">
+                      <div className="flex items-center justify-between text-label-sm text-light-on-surface-variant">
+                        <span className="font-mono text-light-primary font-semibold">{ev.code}</span>
+                        <span>{ev.start_date}</span>
+                      </div>
+                      <h2 className="font-title text-title-lg text-light-on-surface font-semibold m-0">
+                        {ev.title}
+                      </h2>
+                      <p className="font-body text-body-sm text-light-on-surface-variant m-0">
+                        {ev.club_name} · {ev.venue}
+                      </p>
+                      <div className="flex items-center gap-xs flex-wrap pt-xs">
+                        {ev.manual_approval && (
+                          <span className="px-xs py-0.5 rounded bg-info-container text-on-info-container font-label text-label-sm">
+                            Manual Approval
+                          </span>
+                        )}
+                        <span className="px-xs py-0.5 rounded bg-light-surface-container-low text-light-on-surface font-mono text-label-sm">
+                          {ev.fee > 0 ? `LKR ${ev.fee}` : 'Free'}
+                        </span>
+                      </div>
+                    </div>
 
-              <div className="flex flex-wrap items-center justify-between gap-md pt-md border-t border-light-outline-variant">
-                <span className="font-body text-body-md text-light-on-surface-variant">
-                  Approval Queue Active · Requires officer sign-off before payment
-                </span>
-                <div className="flex items-center gap-sm">
-                  <Link
-                    to="/events/evt-1"
-                    className="px-md py-xs rounded bg-light-surface-container-lowest text-light-primary border border-light-outline-variant hover:bg-light-surface-container-low transition-colors duration-state-change font-label text-label-md whitespace-nowrap no-underline"
-                  >
-                    Preview Public Page
-                  </Link>
-                  <Link
-                    to="/organizer/registrations"
-                    className="px-md py-xs rounded bg-light-primary text-light-on-primary hover:bg-light-primary-container transition-colors duration-state-change font-label text-label-md whitespace-nowrap no-underline"
-                  >
-                    Manage Registrations
-                  </Link>
-                </div>
-              </div>
-            </div>
-          </article>
+                    <div className="flex flex-col gap-xs">
+                      <div className="flex justify-between font-label text-label-sm">
+                        <span className="text-light-on-surface-variant">Seat Occupancy</span>
+                        <span className="font-semibold tabular-nums">
+                          {ev.registered} / {ev.capacity} ({fillPct}%)
+                        </span>
+                      </div>
+                      <div className="h-2 bg-light-surface-container rounded-full overflow-hidden">
+                        <div className="h-full bg-light-primary transition-all" style={{ width: `${fillPct}%` }} />
+                      </div>
+                    </div>
 
-          {/* Event 2: Inter-Faculty Futsal Cup */}
-          <article className="bg-light-surface-container-lowest border border-light-outline-variant rounded-md overflow-hidden flex flex-col md:flex-row shadow-sm">
-            <img
-              src="https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&w=800&q=80"
-              alt="Inter-Faculty Futsal Cup"
-              className="w-full md:w-64 h-48 md:h-auto object-cover shrink-0"
-            />
-            <div className="p-lg flex-1 flex flex-col justify-between gap-md">
-              <div className="flex flex-wrap items-start justify-between gap-md">
-              <div className="flex flex-col gap-xs">
-                <div className="flex flex-wrap items-center gap-sm">
-                  <span className="inline-flex items-center gap-xs px-sm py-xs rounded-full bg-success-container text-on-success-container">
-                    <span className="material-symbols-outlined text-[14px]" aria-hidden="true">
-                      check_circle
-                    </span>
-                    <span className="font-label text-label-sm">
-                      Registration Open
-                    </span>
-                  </span>
-                  <span className="font-mono text-mono-md text-light-on-surface-variant tabular-nums">
-                    EVT-2026-049
-                  </span>
-                </div>
-                <h2 className="font-title text-title-lg text-light-on-surface font-semibold">
-                  Inter-Faculty Futsal Cup
-                </h2>
-                <p className="font-body text-body-md text-light-on-surface-variant tabular-nums">
-                  29 Nov 2026 · 08:00 AM – 06:00 PM · University Sports Complex · Free Entry
-                </p>
-              </div>
+                    <div className="flex flex-wrap items-center justify-between gap-xs pt-sm border-t border-light-outline-variant">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingEvent(ev);
+                          setEditCapacity(String(ev.capacity));
+                          setEditFee(String(ev.fee));
+                          setEditVenue(ev.venue);
+                        }}
+                        className="px-sm py-xs rounded border border-light-outline-variant bg-transparent text-light-on-surface font-label text-label-sm font-medium cursor-pointer hover:bg-light-surface-container-low"
+                      >
+                        Edit Seats/Fee
+                      </button>
 
-              <div className="flex flex-col items-end gap-xs">
-                <span className="font-mono text-mono-md text-light-on-surface tabular-nums font-semibold">
-                  66 of 80 seats filled
-                </span>
-                <span className="font-label text-label-sm text-light-on-surface-variant">
-                  Auto-Confirm Enabled
-                </span>
-              </div>
-            </div>
+                      {ev.status !== 'cancelled' && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => handleToggleClose(ev)}
+                            className="px-sm py-xs rounded border border-light-outline-variant bg-light-surface-container-low text-light-on-surface font-label text-label-sm font-medium cursor-pointer"
+                          >
+                            {ev.status === 'published' ? 'Close Regs' : 'Re-open Regs'}
+                          </button>
 
-            <div className="flex flex-wrap items-center justify-between gap-md pt-md border-t border-light-outline-variant">
-              <span className="font-body text-body-md text-light-on-surface-variant">
-                Team Captain &amp; Squad Verification Active
-              </span>
-              <div className="flex items-center gap-sm">
-                <Link
-                  to="/events/evt-7"
-                  className="px-md py-xs rounded bg-light-surface-container-lowest text-light-primary border border-light-outline-variant hover:bg-light-surface-container-low transition-colors duration-state-change font-label text-label-md whitespace-nowrap no-underline"
-                >
-                  Preview Public Page
-                </Link>
-                <Link
-                  to="/organizer/registrations"
-                  className="px-md py-xs rounded bg-light-surface-container-lowest text-light-primary border border-light-outline-variant hover:bg-light-surface-container-low transition-colors duration-state-change font-label text-label-md whitespace-nowrap no-underline"
-                >
-                  Manage Registrations
-                </Link>
-              </div>
-            </div>
-          </div>
-        </article>
-
-          {/* Event 3: Completed Freshers Sports Orientation */}
-          <article className="bg-light-surface-container-lowest border border-light-outline-variant rounded-md p-lg flex flex-wrap items-center justify-between gap-md shadow-sm">
-            <div className="flex flex-col gap-xs">
-              <div className="flex flex-wrap items-center gap-sm">
-                <span className="inline-flex items-center gap-xs px-sm py-xs rounded-full bg-light-surface-container text-light-on-surface-variant">
-                  <span className="material-symbols-outlined text-[14px]" aria-hidden="true">
-                    task_alt
-                  </span>
-                  <span className="font-label text-label-sm">
-                    Completed
-                  </span>
-                </span>
-                <span className="font-mono text-mono-md text-light-on-surface-variant tabular-nums">
-                  EVT-2026-018
-                </span>
-              </div>
-              <h2 className="font-title text-title-lg text-light-on-surface font-semibold">
-                Freshers Sports Orientation
-              </h2>
-              <p className="font-body text-body-md text-light-on-surface-variant tabular-nums">
-                18 Oct 2026 · 112 attended · 112 participation badges issued
-              </p>
-            </div>
-            <Link
-              to="/organizer/registrations"
-              className="px-md py-xs rounded bg-light-surface-container-lowest text-light-primary border border-light-outline-variant hover:bg-light-surface-container-low transition-colors duration-state-change font-label text-label-md whitespace-nowrap no-underline"
-            >
-              View Attendance Log
-            </Link>
-          </article>
+                          <Link
+                            to={`/organizer/events/${ev.id}/cancel`}
+                            className="px-sm py-xs rounded bg-light-error-container text-light-on-error-container font-label text-label-sm font-semibold no-underline hover:opacity-90"
+                          >
+                            Cancel (O15)
+                          </Link>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </article>
+              );
+            })
+          )}
         </section>
+
+        {editingEvent && (
+          <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-md">
+            <form
+              onSubmit={handleSaveEdit}
+              className="bg-light-surface-container-lowest rounded-lg max-w-md w-full p-lg border border-light-outline-variant shadow-xl flex flex-col gap-md"
+            >
+              <h2 className="font-headline text-headline-sm text-light-on-surface font-semibold m-0">
+                Update Edition · {editingEvent.code}
+              </h2>
+              <label className="flex flex-col gap-xs">
+                <span className="font-label text-label-md font-semibold">Seat Capacity</span>
+                <input
+                  type="number"
+                  min={editingEvent.registered}
+                  value={editCapacity}
+                  onChange={(e) => setEditCapacity(e.target.value)}
+                  className="px-md py-sm rounded border border-light-outline bg-light-surface-container-lowest"
+                />
+              </label>
+              <label className="flex flex-col gap-xs">
+                <span className="font-label text-label-md font-semibold">Ticket Fee (LKR)</span>
+                <input
+                  type="number"
+                  min={0}
+                  value={editFee}
+                  onChange={(e) => setEditFee(e.target.value)}
+                  className="px-md py-sm rounded border border-light-outline bg-light-surface-container-lowest"
+                />
+              </label>
+              <label className="flex flex-col gap-xs">
+                <span className="font-label text-label-md font-semibold">Campus Venue</span>
+                <input
+                  type="text"
+                  required
+                  value={editVenue}
+                  onChange={(e) => setEditVenue(e.target.value)}
+                  className="px-md py-sm rounded border border-light-outline bg-light-surface-container-lowest"
+                />
+              </label>
+              <div className="flex justify-end gap-sm pt-sm">
+                <button
+                  type="button"
+                  onClick={() => setEditingEvent(null)}
+                  className="px-md py-xs rounded border border-light-outline-variant bg-transparent cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingEdit}
+                  className="px-md py-xs rounded bg-light-primary text-light-on-primary font-semibold border-0 cursor-pointer"
+                >
+                  {savingEdit ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
       </main>
     </OrganizerLayout>
   );

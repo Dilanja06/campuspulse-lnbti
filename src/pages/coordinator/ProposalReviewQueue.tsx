@@ -146,7 +146,7 @@ export const ProposalReviewQueue: React.FC = () => {
                       LKR {prop.budget.toLocaleString()}
                     </td>
                     <td className="px-md py-md whitespace-nowrap">
-                      {prop.status === 'Pending Review' || prop.stage === 2 && prop.status !== 'Revision Requested' ? (
+                      {prop.status === 'Pending Review' || (prop.stage === 2 && prop.status !== 'Revision Requested' && prop.status !== 'Rejected' && prop.status !== 'Higher Authority' && prop.status !== 'Approved' && prop.status !== 'Approved & Published') ? (
                         <span className="inline-flex items-center gap-xs px-sm py-xs rounded-full bg-info-container text-on-info-container whitespace-nowrap">
                           <span className="material-symbols-outlined text-[14px]" aria-hidden="true">
                             hourglass_top
@@ -179,12 +179,12 @@ export const ProposalReviewQueue: React.FC = () => {
                       <Link
                         to={`/coordinator/proposals/${prop.id}/review`}
                         className={`inline-flex items-center justify-center px-md py-xs rounded font-label text-label-md whitespace-nowrap no-underline transition-colors ${
-                          prop.status === 'Pending Review' || (prop.stage === 2 && prop.status !== 'Revision Requested')
+                          prop.status === 'Pending Review' || (prop.stage === 2 && prop.status !== 'Revision Requested' && prop.status !== 'Rejected' && prop.status !== 'Higher Authority' && prop.status !== 'Approved' && prop.status !== 'Approved & Published')
                             ? 'bg-light-primary text-light-on-primary hover:bg-light-primary-container'
                             : 'bg-light-surface-container-lowest text-light-primary border border-light-outline-variant hover:bg-light-surface-container-low'
                         }`}
                       >
-                        {prop.status === 'Pending Review' || (prop.stage === 2 && prop.status !== 'Revision Requested') ? 'Review' : 'View'}
+                        {prop.status === 'Pending Review' || (prop.stage === 2 && prop.status !== 'Revision Requested' && prop.status !== 'Rejected' && prop.status !== 'Higher Authority' && prop.status !== 'Approved' && prop.status !== 'Approved & Published') ? 'Review' : 'View'}
                       </Link>
                     </td>
                   </tr>

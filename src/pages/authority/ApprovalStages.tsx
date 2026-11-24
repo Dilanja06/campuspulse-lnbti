@@ -95,7 +95,7 @@ export const ApprovalStages: React.FC = () => {
                         </div>
                       </td>
                       <td className="px-md py-md font-body text-body-md text-light-on-surface whitespace-nowrap">
-                        {prop.coordinator_endorsement?.by || 'Dr. Kavinda Silva'}
+                        {prop.coordinator_endorsement?.name || prop.coordinator_endorsement?.by || 'Dr. Kavinda Silva'}
                       </td>
                       <td className="px-md py-md font-mono text-mono-md text-light-on-surface tabular-nums whitespace-nowrap">
                         LKR {prop.budget?.toLocaleString()}

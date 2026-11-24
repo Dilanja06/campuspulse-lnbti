@@ -1,336 +1,321 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { currentUser } from '../data/mockData';
+import { AppLayout } from '../components/AppLayout';
+import { useAuth } from '../context/AuthContext';
 import { dataService } from '../services/dataService';
 import { EventItem } from '../types';
+import { getEventCoverImage } from '../utils/eventImages';
 
 export const Register: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const [event, setEvent] = useState<EventItem | null>(null);
-  const [category, setCategory] = useState('Badminton (Singles)');
-  const [size, setSize] = useState('Medium (M)');
-  const [emergencyPhone, setEmergencyPhone] = useState('+94 77 123 4567');
+  const [loading, setLoading] = useState(true);
+
+  const [activityTrack, setActivityTrack] = useState('');
+  const [emergencyPhone, setEmergencyPhone] = useState('+94 77 451 8920');
   const [medicalNotes, setMedicalNotes] = useState('None');
   const [agreeRules, setAgreeRules] = useState(true);
   const [agreeSafety, setAgreeSafety] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => {
-    async function loadEvent() {
-      if (id) {
+    const loadEvent = async () => {
+      if (!id) return;
+      try {
         const ev = await dataService.getEventById(id);
-        if (ev) setEvent(ev);
+        setEvent(ev);
+        if (ev) {
+          setActivityTrack(defaultTracksForCategory(ev.category)[0]);
+        }
+      } finally {
+        setLoading(false);
       }
-    }
+    };
     loadEvent();
   }, [id]);
 
-  if (!event) {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-xl">
-        <p className="font-body text-body-lg text-light-on-surface-variant">Loading event details...</p>
-      </div>
-    );
-  }
+  const defaultTracksForCategory = (category: EventItem['category']) => {
+    switch (category) {
+      case 'Sports':
+        return ['Badminton Singles', 'Table Tennis Doubles', 'Chess Rapid', 'General Athletics'];
+      case 'Technical':
+        return ['Software Build Track', 'AI & Data Track', 'Cybersecurity Challenge', 'General Participant'];
+      case 'Cultural':
+        return ['Stage Performance', 'Backstage & Production', 'Audience Pass'];
+      case 'Community Service':
+        return ['Field Volunteer', 'Logistics & Coordination'];
+      default:
+        return ['General Participant', 'Presenter / Panelist'];
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!event || !user) return;
     if (!agreeRules || !agreeSafety) {
-      alert('Please agree to the university competition rules & health guidelines.');
+      setErrorMsg('Please accept both the University Code of Conduct and Medical Safety consent.');
       return;
     }
 
     setSubmitting(true);
+    setErrorMsg('');
 
-    const newReg = {
-      id: `reg-${Date.now()}`,
-      reg_code: `REG-2026-${Math.floor(1000 + Math.random() * 9000)}`,
-      event_id: event.id,
-      event_title: event.title,
-      club_name: event.club_name,
-      date: event.start_date,
-      time: event.time,
-      venue: event.venue,
-      status: event.fee > 0 ? ('payment_pending' as const) : ('confirmed' as const),
-      fee: event.fee,
-      created_at: new Date().toISOString(),
-    };
-
-    // Save directly to Supabase
-    await dataService.addRegistration(newReg);
-
-    if (event.fee > 0) {
-      await dataService.createPayment({
-        id: `tx-${Date.now()}`,
-        receipt_no: `RCT-2026-${Math.floor(1000 + Math.random() * 9000)}`,
-        event_title: event.title,
-        club_name: event.club_name,
-        amount: event.fee,
-        date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
-        status: 'Pending',
+    try {
+      const res = await dataService.registerForEventAtomic({
+        event,
+        userId: user.id,
+        userName: user.name,
+        studentId: user.student_id || 'UG/2024/0000',
+        userEmail: user.email,
+        activity: activityTrack,
       });
-      await dataService.addNotification({
-        title: 'Payment Hold Active',
-        description: `Your seat for ${event.title} is reserved. Complete LKR ${event.fee} payment to confirm your seat.`,
-        timestamp: 'Just now',
-        read: false,
-        type: 'warning',
-        icon: 'timer',
-      });
-    }
 
-    setSubmitting(false);
+      if (!res.success || !res.registration) {
+        setErrorMsg(res.error || 'Could not complete registration.');
+        return;
+      }
 
-    if (event.fee > 0) {
-      navigate('/payment');
-    } else {
-      navigate('/my-registrations');
+      if (res.registration.status === 'payment_pending') {
+        navigate(
+          `/payments?reg=${encodeURIComponent(res.registration.reg_code)}&event=${encodeURIComponent(
+            event.title
+          )}&amount=${event.fee}`
+        );
+      } else {
+        navigate('/my-registrations');
+      }
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  return (
-    <div className="min-h-screen bg-light-surface text-light-on-surface font-body antialiased flex flex-col">
-      {/* Top Bar for Focused Task */}
-      <header className="h-16 bg-light-surface-container-lowest border-b border-light-outline-variant px-xl flex items-center justify-between sticky top-0 z-20">
-        <Link
-          to={`/events/${event.id}`}
-          className="inline-flex items-center gap-xs font-label text-label-md text-light-primary hover:underline no-underline"
-        >
-          <span className="material-symbols-outlined text-[20px]">arrow_back</span>
-          <span>Back to event</span>
-        </Link>
-        <span className="font-label text-label-md text-light-on-surface-variant font-medium">
-          Step 1 of 2 · Registration Form
-        </span>
-      </header>
+  if (loading) {
+    return (
+      <AppLayout>
+        <main className="p-xl max-w-[1000px] mx-auto text-center text-light-on-surface-variant">
+          Loading registration form...
+        </main>
+      </AppLayout>
+    );
+  }
 
-      {/* Main Form Content */}
-      <main className="flex-1 max-w-[1040px] w-full mx-auto p-md md:p-xl flex flex-col gap-xl">
-        <div className="flex flex-col gap-xs">
-          <h1 className="font-headline text-headline-md font-bold text-light-on-surface m-0">
-            Event Registration Form
+  if (!event) {
+    return (
+      <AppLayout>
+        <main className="p-xl max-w-[900px] mx-auto text-center">
+          <p className="font-body text-body-md text-light-on-surface-variant">Event not found.</p>
+          <Link to="/events" className="text-light-primary font-label text-label-md">← Return to Events</Link>
+        </main>
+      </AppLayout>
+    );
+  }
+
+  const tracks = defaultTracksForCategory(event.category);
+  const unavailable = event.status !== 'published' || event.registered >= event.capacity;
+
+  return (
+    <AppLayout>
+      <main className="p-lg md:p-xl max-w-[1200px] w-full mx-auto flex flex-col gap-xl">
+        <header className="flex flex-col gap-xs">
+          <Link
+            to={`/events/${event.id}`}
+            className="inline-flex items-center gap-xs text-light-on-surface-variant hover:text-light-on-surface font-label text-label-md no-underline w-fit"
+          >
+            <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+            <span>Back to {event.title}</span>
+          </Link>
+          <h1 className="font-headline text-headline-lg text-light-on-surface font-semibold m-0">
+            Event Registration (S07)
           </h1>
           <p className="font-body text-body-md text-light-on-surface-variant m-0">
-            Confirm your verified university participant profile and preferences.
+            Atomic seat reservation &amp; participant profile confirmation.
           </p>
-        </div>
+        </header>
+
+        {unavailable && (
+          <div className="p-md rounded bg-light-error-container text-light-on-error-container font-body text-body-md">
+            Registration is currently unavailable for this event ({event.status}, {event.registered}/{event.capacity} seats filled).
+          </div>
+        )}
+
+        {errorMsg && (
+          <div className="p-md rounded bg-light-error-container text-light-on-error-container font-body text-body-md">
+            {errorMsg}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-xl items-start">
           {/* Left Form (7 cols) */}
-          <div className="lg:col-span-7 flex flex-col gap-xl">
-            {/* Section 1: Verified student details */}
-            <div className="bg-light-surface-container-lowest border border-light-outline-variant rounded-md p-lg flex flex-col gap-md shadow-sm">
-              <div className="flex items-center justify-between">
-                <h2 className="font-headline text-title-lg font-semibold text-light-on-surface m-0">
-                  Verified Student Record
-                </h2>
-                <span className="inline-flex items-center gap-xs text-label-sm font-label text-light-secondary font-medium">
-                  <span className="material-symbols-outlined text-[16px]">lock</span>
-                  Auto-populated
-                </span>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-md">
-                <div className="flex flex-col gap-xs">
-                  <span className="font-label text-label-sm text-light-on-surface-variant">Full Name</span>
-                  <input
-                    type="text"
-                    disabled
-                    value={currentUser.name}
-                    className="w-full rounded border border-light-outline-variant bg-light-surface-container-low px-md py-sm font-body text-body-md text-light-on-surface opacity-80 cursor-not-allowed"
-                  />
-                </div>
-
-                <div className="flex flex-col gap-xs">
-                  <span className="font-label text-label-sm text-light-on-surface-variant">Student ID</span>
-                  <input
-                    type="text"
-                    disabled
-                    value={currentUser.student_id}
-                    className="w-full rounded border border-light-outline-variant bg-light-surface-container-low px-md py-sm font-mono text-mono-md text-light-on-surface opacity-80 cursor-not-allowed"
-                  />
-                </div>
-              </div>
-
-              <div className="flex flex-col gap-xs">
-                <span className="font-label text-label-sm text-light-on-surface-variant">University Email</span>
-                <input
-                  type="text"
-                  disabled
-                  value={currentUser.email}
-                  className="w-full rounded border border-light-outline-variant bg-light-surface-container-low px-md py-sm font-body text-body-md text-light-on-surface opacity-80 cursor-not-allowed"
-                />
-              </div>
-            </div>
-
-            {/* Section 2: Participant preferences */}
-            <div className="bg-light-surface-container-lowest border border-light-outline-variant rounded-md p-lg flex flex-col gap-md shadow-sm">
+          <div className="lg:col-span-7 flex flex-col gap-lg">
+            {/* Section 1: Verified Identity */}
+            <section className="bg-light-surface-container-lowest border border-light-outline-variant rounded-md p-lg flex flex-col gap-md shadow-sm">
               <h2 className="font-headline text-title-lg font-semibold text-light-on-surface m-0">
-                Participation Preferences
+                Verified Student Identity
+              </h2>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-md text-body-md">
+                <div>
+                  <span className="font-label text-label-sm text-light-on-surface-variant block">Full Name</span>
+                  <span className="font-semibold">{user?.name}</span>
+                </div>
+                <div>
+                  <span className="font-label text-label-sm text-light-on-surface-variant block">University ID</span>
+                  <span className="font-mono font-semibold">{user?.student_id}</span>
+                </div>
+                <div>
+                  <span className="font-label text-label-sm text-light-on-surface-variant block">Institutional Email</span>
+                  <span className="font-semibold">{user?.email}</span>
+                </div>
+                <div>
+                  <span className="font-label text-label-sm text-light-on-surface-variant block">Faculty</span>
+                  <span className="font-semibold">{user?.faculty}</span>
+                </div>
+              </div>
+            </section>
+
+            {/* Section 2: Track & Emergency Contact */}
+            <section className="bg-light-surface-container-lowest border border-light-outline-variant rounded-md p-lg flex flex-col gap-md shadow-sm">
+              <h2 className="font-headline text-title-lg font-semibold text-light-on-surface m-0">
+                Participation Details
               </h2>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-md">
-                <label className="flex flex-col gap-xs">
-                  <span className="font-label text-label-sm text-light-on-surface font-medium">Event Track / Sport</span>
-                  <select
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value)}
-                    className="w-full rounded border border-light-outline-variant bg-light-surface-container-lowest px-md py-sm font-body text-body-md text-light-on-surface outline-none"
-                  >
-                    <option value="Badminton (Singles)">Badminton (Singles)</option>
-                    <option value="Table Tennis (Doubles)">Table Tennis (Doubles)</option>
-                    <option value="Basketball 3v3">Basketball 3v3</option>
-                    <option value="Chess Championship">Chess Championship</option>
-                  </select>
-                </label>
-
-                <label className="flex flex-col gap-xs">
-                  <span className="font-label text-label-sm text-light-on-surface font-medium">Kit / Jersey Size</span>
-                  <select
-                    value={size}
-                    onChange={(e) => setSize(e.target.value)}
-                    className="w-full rounded border border-light-outline-variant bg-light-surface-container-lowest px-md py-sm font-body text-body-md text-light-on-surface outline-none"
-                  >
-                    <option value="Small (S)">Small (S)</option>
-                    <option value="Medium (M)">Medium (M)</option>
-                    <option value="Large (L)">Large (L)</option>
-                    <option value="Extra Large (XL)">Extra Large (XL)</option>
-                  </select>
-                </label>
-              </div>
+              <label className="flex flex-col gap-xs">
+                <span className="font-label text-label-md font-semibold">Selected Track / Activity</span>
+                <select
+                  value={activityTrack}
+                  onChange={(e) => setActivityTrack(e.target.value)}
+                  className="px-md py-sm rounded border border-light-outline bg-light-surface-container-lowest font-body text-body-md"
+                >
+                  {tracks.map((t) => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </select>
+              </label>
 
               <label className="flex flex-col gap-xs">
-                <span className="font-label text-label-sm text-light-on-surface font-medium">Emergency Contact Number</span>
+                <span className="font-label text-label-md font-semibold">Emergency Contact Number</span>
                 <input
                   type="tel"
                   required
                   value={emergencyPhone}
                   onChange={(e) => setEmergencyPhone(e.target.value)}
-                  className="w-full rounded border border-light-outline-variant bg-light-surface-container-lowest px-md py-sm font-body text-body-md text-light-on-surface outline-none"
+                  className="px-md py-sm rounded border border-light-outline bg-light-surface-container-lowest font-body text-body-md"
                 />
               </label>
 
               <label className="flex flex-col gap-xs">
-                <span className="font-label text-label-sm text-light-on-surface font-medium">Medical Allergies / Dietary Constraints</span>
+                <span className="font-label text-label-md font-semibold">Medical / Accessibility Notes</span>
                 <textarea
-                  rows={3}
+                  rows={2}
                   value={medicalNotes}
                   onChange={(e) => setMedicalNotes(e.target.value)}
-                  className="w-full rounded border border-light-outline-variant bg-light-surface-container-lowest px-md py-sm font-body text-body-md text-light-on-surface outline-none resize-none"
+                  className="px-md py-sm rounded border border-light-outline bg-light-surface-container-lowest font-body text-body-md resize-none"
                 />
               </label>
-            </div>
+            </section>
 
-            {/* Section 3: Rules and Consent */}
-            <div className="bg-light-surface-container-lowest border border-light-outline-variant rounded-md p-lg flex flex-col gap-md shadow-sm">
-              <h2 className="font-headline text-title-lg font-semibold text-light-on-surface m-0">
-                Rules &amp; Participant Consent
-              </h2>
-
-              <label className="flex items-start gap-sm cursor-pointer select-none">
+            {/* Section 3: Rules */}
+            <section className="bg-light-surface-container-lowest border border-light-outline-variant rounded-md p-lg flex flex-col gap-md shadow-sm">
+              <label className="flex items-start gap-sm cursor-pointer">
                 <input
                   type="checkbox"
                   checked={agreeRules}
                   onChange={(e) => setAgreeRules(e.target.checked)}
-                  className="mt-1 w-4 h-4 text-light-primary rounded"
+                  className="mt-1 w-4 h-4 rounded text-light-primary"
                 />
                 <span className="font-body text-body-md text-light-on-surface">
-                  I agree to abide by the University Code of Conduct, sportsmanship guidelines, and organizing committee directives.
+                  I agree to abide by the University Code of Conduct and organizing committee directives.
                 </span>
               </label>
-
-              <label className="flex items-start gap-sm cursor-pointer select-none">
+              <label className="flex items-start gap-sm cursor-pointer">
                 <input
                   type="checkbox"
                   checked={agreeSafety}
                   onChange={(e) => setAgreeSafety(e.target.checked)}
-                  className="mt-1 w-4 h-4 text-light-primary rounded"
+                  className="mt-1 w-4 h-4 rounded text-light-primary"
                 />
                 <span className="font-body text-body-md text-light-on-surface">
-                  I confirm that I am medically fit to participate and consent to emergency first aid on premises if required.
+                  I confirm medical fitness to participate and consent to emergency on-campus first aid if required.
                 </span>
               </label>
-            </div>
+            </section>
 
-            {/* Form Action Buttons */}
-            <div className="flex items-center justify-between pt-md">
+            <div className="flex items-center justify-between">
               <button
                 type="button"
                 onClick={() => navigate(-1)}
-                className="px-lg py-sm rounded bg-light-surface-container-lowest text-light-on-surface-variant border border-light-outline-variant font-label text-label-lg font-semibold hover:bg-light-surface-container-low cursor-pointer"
+                className="px-lg py-sm rounded border border-light-outline-variant bg-light-surface-container-lowest text-light-on-surface font-label text-label-md font-semibold cursor-pointer"
               >
                 Cancel
               </button>
-
               <button
                 type="submit"
-                disabled={submitting}
-                className="px-xl py-sm rounded bg-light-primary text-light-on-primary font-label text-label-lg font-bold hover:bg-light-primary-container transition-all cursor-pointer border-0 shadow-sm"
+                disabled={submitting || unavailable}
+                className="px-xl py-sm rounded bg-light-primary text-light-on-primary font-label text-label-lg font-bold border-0 cursor-pointer hover:bg-light-primary-container disabled:opacity-50"
               >
-                {submitting ? 'Saving to Database...' : event.fee > 0 ? `Continue to Payment · LKR ${event.fee}` : 'Confirm Free Registration'}
+                {submitting
+                  ? 'Reserving Seat...'
+                  : event.manual_approval
+                  ? 'Submit for Officer Approval'
+                  : event.fee > 0
+                  ? `Reserve Hold & Pay · LKR ${event.fee}`
+                  : 'Confirm Free Registration'}
               </button>
             </div>
           </div>
 
-          {/* Right Summary Card (5 cols) */}
-          <div className="lg:col-span-5 sticky top-24 flex flex-col gap-md">
-            <div className="bg-light-surface-container-lowest border border-light-outline-variant rounded-md p-lg flex flex-col gap-md shadow-sm">
-              <span className="font-headline text-title-md font-semibold text-light-on-surface">
-                Registration Summary
-              </span>
-
-              <div className="h-28 bg-gradient-to-r from-slate-900 to-indigo-950 rounded p-md flex flex-col justify-end text-white">
-                <span className="text-xs font-mono text-teal-300">{event.code}</span>
-                <span className="font-headline text-title-md font-bold text-white line-clamp-1">{event.title}</span>
+          {/* Right Summary Card */}
+          <aside className="lg:col-span-5 bg-light-surface-container-lowest border border-light-outline-variant rounded-md p-lg flex flex-col gap-md shadow-sm lg:sticky lg:top-24">
+            <h2 className="font-title text-title-md text-light-on-surface font-semibold m-0">
+              Registration Summary
+            </h2>
+            <div className="h-32 relative rounded overflow-hidden bg-slate-900">
+              <img
+                src={getEventCoverImage(event)}
+                alt={event.title}
+                className="w-full h-full object-cover opacity-80"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent p-md flex flex-col justify-end text-white">
+                <span className="font-mono text-mono-sm text-teal-300">{event.code}</span>
+                <span className="font-title text-title-md font-bold">{event.title}</span>
               </div>
-
-              <div className="flex flex-col gap-xs text-body-md text-light-on-surface-variant border-b border-light-outline-variant pb-md">
-                <div className="flex justify-between">
-                  <span>Organizing Club:</span>
-                  <span className="font-semibold text-light-on-surface">{event.club_name}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Date:</span>
-                  <span className="font-semibold text-light-on-surface">{event.start_date}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Venue:</span>
-                  <span className="font-semibold text-light-on-surface">{event.venue}</span>
-                </div>
-              </div>
-
-              {/* Fee breakdown */}
-              <div className="flex flex-col gap-xs text-body-md">
-                <div className="flex justify-between text-light-on-surface-variant">
-                  <span>Registration Fee</span>
-                  <span className="font-mono">LKR {event.fee}</span>
-                </div>
-                <div className="flex justify-between text-light-on-surface-variant">
-                  <span>Portal Service Fee</span>
-                  <span className="font-mono">LKR 0.00</span>
-                </div>
-                <div className="flex justify-between text-title-md font-bold text-light-primary border-t border-light-outline-variant pt-sm mt-xs">
-                  <span>Total Amount</span>
-                  <span className="font-mono">LKR {event.fee}</span>
-                </div>
-              </div>
-
-              {/* Hold Warning */}
-              {event.fee > 0 && (
-                <div className="bg-warning-container text-on-warning-container rounded p-md flex items-start gap-xs text-label-sm">
-                  <span className="material-symbols-outlined text-[18px] shrink-0 mt-0.5">timer</span>
-                  <span>
-                    Your seat reservation will be held for 10 minutes upon form submission to allow payment verification.
-                  </span>
-                </div>
-              )}
             </div>
-          </div>
+            <div className="flex flex-col gap-xs text-body-md border-b border-light-outline-variant pb-md">
+              <div className="flex justify-between">
+                <span className="text-light-on-surface-variant">Organizing Club</span>
+                <span className="font-semibold">{event.club_name}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-light-on-surface-variant">Date &amp; Time</span>
+                <span className="font-semibold">{event.start_date} · {event.time}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-light-on-surface-variant">Venue</span>
+                <span className="font-semibold">{event.venue}</span>
+              </div>
+            </div>
+            <div className="flex justify-between items-center text-title-md font-bold text-light-primary">
+              <span>Total Fee</span>
+              <span className="font-mono">{event.fee > 0 ? `LKR ${event.fee}` : 'LKR 0.00 (Free)'}</span>
+            </div>
+            {event.manual_approval ? (
+              <div className="bg-info-container/40 text-on-info-container rounded p-md text-label-sm flex items-start gap-xs">
+                <span className="material-symbols-outlined text-[18px] shrink-0 mt-0.5">policy</span>
+                <span>Requires manual club officer approval prior to ticket confirmation.</span>
+              </div>
+            ) : event.fee > 0 ? (
+              <div className="bg-warning-container text-on-warning-container rounded p-md text-label-sm flex items-start gap-xs">
+                <span className="material-symbols-outlined text-[18px] shrink-0 mt-0.5">timer</span>
+                <span>Your seat reservation is held for {event.hold_minutes || 10} minutes pending payment confirmation.</span>
+              </div>
+            ) : null}
+          </aside>
         </form>
       </main>
-    </div>
+    </AppLayout>
   );
 };
 

@@ -1,311 +1,328 @@
-import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { useSearchParams, Link } from 'react-router-dom';
 import { AppLayout } from '../components/AppLayout';
-import { StatusChip } from '../components/StatusChip';
-import { TransactionItem } from '../types';
+import { useAuth } from '../context/AuthContext';
 import { dataService } from '../services/dataService';
+import { TransactionItem, RegistrationItem } from '../types';
 
 export const PaymentAndReceipt: React.FC = () => {
-  const [transactions, setTransactions] = useState<TransactionItem[]>([]);
-  const [selectedTx, setSelectedTx] = useState<TransactionItem | null>(null);
-  const [paying, setPaying] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [successBanner, setSuccessBanner] = useState<{ eventTitle: string; amount: number } | null>(null);
+  const { user } = useAuth();
+  const [searchParams] = useSearchParams();
+  const regCodeParam = searchParams.get('reg') || '';
+  const eventParam = searchParams.get('event') || '';
+  const amountParam = Number(searchParams.get('amount') || '0');
 
-  useEffect(() => {
-    async function loadPayments() {
-      setLoading(true);
-      const data = await dataService.getPayments();
-      setTransactions(data);
-      if (data.length > 0) {
-        setSelectedTx(data.find((t) => t.status === 'Successful') || data[0]);
-      }
+  const [transactions, setTransactions] = useState<TransactionItem[]>([]);
+  const [pendingRegs, setPendingRegs] = useState<RegistrationItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [processingId, setProcessingId] = useState<string | null>(null);
+  const [statusBanner, setStatusBanner] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  // Request Refund Modal
+  const [refundTargetTx, setRefundTargetTx] = useState<TransactionItem | null>(null);
+  const [refundReason, setRefundReason] = useState('');
+  const [submittingRefund, setSubmittingRefund] = useState(false);
+
+  const loadPayments = async () => {
+    setLoading(true);
+    try {
+      const [txList, regs] = await Promise.all([
+        dataService.getPayments(user?.id),
+        dataService.getRegistrations({ userId: user?.id, userEmail: user?.email }),
+      ]);
+      setTransactions(txList);
+      setPendingRegs(regs.filter((r) => r.status === 'payment_pending'));
+    } finally {
       setLoading(false);
     }
-    loadPayments();
-  }, []);
+  };
 
-  const handlePay = async (txId: string) => {
-    const tx = transactions.find((t) => t.id === txId) || selectedTx;
-    setPaying(true);
+  useEffect(() => {
+    loadPayments();
+  }, [user?.id, user?.email]);
+
+  const handlePayNow = async (opts: { transactionId?: string; registrationId?: string; eventTitle?: string; amount?: number }) => {
+    setProcessingId(opts.transactionId || opts.registrationId || 'checkout');
+    setStatusBanner(null);
     try {
       const res = await dataService.confirmPayment({
-        transactionId: txId,
-        eventTitle: tx?.event_title,
-        amount: tx?.amount,
+        ...opts,
+        userId: user?.id,
       });
-
-      // Update local transaction list
-      setTransactions((prev) =>
-        prev.map((t) => (t.id === txId ? { ...t, status: 'Successful' } : t))
-      );
-      if (selectedTx?.id === txId || (!selectedTx && tx)) {
-        setSelectedTx({ ...(tx || selectedTx!), status: 'Successful' });
+      if (!res.success) {
+        setStatusBanner({
+          type: 'error',
+          text: res.error || 'Payment verification failed.',
+        });
+      } else {
+        setStatusBanner({
+          type: 'success',
+          text: `Payment settled (${res.transaction?.receipt_no}). Registration confirmed and QR ticket issued!`,
+        });
       }
-
-      setSuccessBanner({
-        eventTitle: tx?.event_title || 'University Indoor Games Day 2026',
-        amount: tx?.amount || 500,
-      });
-    } catch (e) {
-      console.error('Payment error:', e);
+      await loadPayments();
     } finally {
-      setPaying(false);
+      setProcessingId(null);
+    }
+  };
+
+  const handleRefundSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!refundTargetTx || !user || !refundReason.trim()) return;
+    setSubmittingRefund(true);
+    try {
+      const req = await dataService.requestRefund({
+        tx: refundTargetTx,
+        reason: refundReason.trim(),
+        studentName: user.name,
+        studentId: user.student_id || 'UG/2024/0000',
+        userId: user.id,
+      });
+      setStatusBanner({
+        type: 'success',
+        text: `Refund request ${req.refund_code} submitted for ${refundTargetTx.event_title}. Track status under Refunds.`,
+      });
+      setRefundTargetTx(null);
+      setRefundReason('');
+      await loadPayments();
+    } finally {
+      setSubmittingRefund(false);
     }
   };
 
   return (
     <AppLayout>
-      {/* Title */}
-      <div className="flex flex-col gap-xs">
-        <h1 className="font-headline text-headline-lg text-light-on-surface font-bold">
-          Payments &amp; Receipts
-        </h1>
-        <p className="font-body text-body-md text-light-on-surface-variant">
-          University payment gateway logs, verified receipts, and automated refund tracking.
-        </p>
-      </div>
+      <main className="p-lg md:p-xl max-w-[1300px] w-full mx-auto flex flex-col gap-xl">
+        <header className="flex flex-col md:flex-row md:items-center justify-between gap-md">
+          <div className="flex flex-col gap-xs">
+            <h1 className="font-headline text-headline-lg text-light-on-surface font-semibold m-0">
+              Payments &amp; Official Receipts (S09 · S10)
+            </h1>
+            <p className="font-body text-body-md text-light-on-surface-variant m-0">
+              Settle held registration fees via PayHere University Gateway or download receipts and file refunds.
+            </p>
+          </div>
+          <Link
+            to="/refunds"
+            className="px-md py-sm rounded bg-light-surface-container-lowest border border-light-outline-variant text-light-on-surface font-label text-label-md font-semibold no-underline w-fit"
+          >
+            Track Refund Status →
+          </Link>
+        </header>
 
-      {/* Success Notification Banner */}
-      {successBanner && (
-        <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-700/60 p-md rounded-md flex flex-wrap items-center justify-between gap-md text-emerald-950 dark:text-emerald-100 shadow-sm animate-fadeIn">
-          <div className="flex items-center gap-md">
-            <span className="material-symbols-outlined text-[28px] text-emerald-600 dark:text-emerald-400">
-              check_circle
+        {statusBanner && (
+          <div
+            className={`p-md rounded border flex items-center gap-sm text-body-md ${
+              statusBanner.type === 'success'
+                ? 'bg-success-container/30 border-success text-on-success-container'
+                : 'bg-light-error-container border-light-error text-light-on-error-container'
+            }`}
+          >
+            <span className="material-symbols-outlined">
+              {statusBanner.type === 'success' ? 'check_circle' : 'error'}
             </span>
-            <div className="flex flex-col">
-              <span className="font-title text-title-md font-bold">
-                Payment Confirmed · LKR {successBanner.amount.toFixed(2)} for {successBanner.eventTitle}
-              </span>
-              <span className="font-body text-body-sm opacity-90">
-                Payment confirmed through University Gateway. Your payment hold has resolved into an active verified seat reservation!
-              </span>
-            </div>
+            <span>{statusBanner.text}</span>
           </div>
-          <div className="flex items-center gap-sm">
-            <Link
-              to="/my-qr"
-              className="px-md py-xs rounded bg-emerald-600 hover:bg-emerald-700 text-white font-label text-label-md font-bold no-underline flex items-center gap-xs shadow-sm"
-            >
-              <span className="material-symbols-outlined text-[18px]">qr_code</span>
-              <span>View Attendance QR</span>
-            </Link>
-            <Link
-              to="/home"
-              className="px-md py-xs rounded bg-white dark:bg-slate-800 border border-emerald-300 dark:border-emerald-700 text-emerald-900 dark:text-emerald-200 font-label text-label-md font-medium no-underline hover:bg-emerald-50 dark:hover:bg-slate-700"
-            >
-              Dashboard
-            </Link>
-          </div>
-        </div>
-      )}
+        )}
 
-      {/* 12-Column Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-xl items-start">
-        {/* Left Column (8 cols): Transactions Table */}
-        <div className="lg:col-span-8 flex flex-col gap-md">
-          <div className="bg-light-surface-container-lowest border border-light-outline-variant rounded-md overflow-hidden shadow-sm">
-            <div className="p-md border-b border-light-outline-variant bg-light-surface-container-low flex justify-between items-center">
-              <span className="font-headline text-title-md font-semibold text-light-on-surface">
-                Transaction History
-              </span>
-              <span className="font-label text-label-sm text-light-on-surface-variant">
-                Academic Year 2026
-              </span>
+        {/* Active Payment Checkout Hold Box */}
+        {(pendingRegs.length > 0 || (regCodeParam && amountParam > 0)) && (
+          <section className="bg-light-surface-container-lowest border-2 border-light-primary rounded-lg p-lg shadow-sm flex flex-col gap-md">
+            <h2 className="font-headline text-headline-sm text-light-on-surface font-semibold m-0">
+              Active Registration Holds Awaiting Settlement
+            </h2>
+
+            <div className="flex flex-col gap-sm">
+              {pendingRegs.map((reg) => (
+                <div
+                  key={reg.id}
+                  className="p-md rounded bg-warning-container/25 border border-warning flex flex-col sm:flex-row sm:items-center justify-between gap-md"
+                >
+                  <div>
+                    <span className="font-mono text-mono-sm text-light-primary font-bold">{reg.reg_code}</span>
+                    <h3 className="font-title text-title-md font-semibold m-0">{reg.event_title}</h3>
+                    <span className="font-label text-label-sm text-light-on-surface-variant">
+                      {reg.club_name} · Fee: <strong>LKR {reg.fee.toLocaleString()}</strong>
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={processingId !== null}
+                    onClick={() =>
+                      handlePayNow({
+                        registrationId: reg.id,
+                        eventTitle: reg.event_title,
+                        amount: reg.fee,
+                      })
+                    }
+                    className="px-lg py-sm rounded bg-light-primary text-light-on-primary font-label text-label-md font-bold border-0 cursor-pointer hover:bg-light-primary-container shrink-0"
+                  >
+                    {processingId ? 'Verifying PayHere Hold...' : `Confirm & Pay LKR ${reg.fee}`}
+                  </button>
+                </div>
+              ))}
+
+              {pendingRegs.length === 0 && regCodeParam && amountParam > 0 && (
+                <div className="p-md rounded bg-warning-container/25 border border-warning flex flex-col sm:flex-row sm:items-center justify-between gap-md">
+                  <div>
+                    <span className="font-mono text-mono-sm text-light-primary font-bold">{regCodeParam}</span>
+                    <h3 className="font-title text-title-md font-semibold m-0">{eventParam || 'Event Ticket'}</h3>
+                    <span className="font-label text-label-sm text-light-on-surface-variant">
+                      Amount due: <strong>LKR {amountParam.toLocaleString()}</strong>
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={processingId !== null}
+                    onClick={() =>
+                      handlePayNow({
+                        registrationId: regCodeParam,
+                        eventTitle: eventParam,
+                        amount: amountParam,
+                      })
+                    }
+                    className="px-lg py-sm rounded bg-light-primary text-light-on-primary font-label text-label-md font-bold border-0 cursor-pointer"
+                  >
+                    {processingId ? 'Processing...' : `Pay LKR ${amountParam}`}
+                  </button>
+                </div>
+              )}
             </div>
+          </section>
+        )}
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="border-b border-light-outline-variant text-label-sm font-label text-light-on-surface-variant uppercase bg-light-surface-container-lowest">
-                    <th className="py-sm px-md">Event / Purpose</th>
-                    <th className="py-sm px-md">Amount</th>
-                    <th className="py-sm px-md">Date</th>
-                    <th className="py-sm px-md">Status</th>
-                    <th className="py-sm px-md text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-light-outline-variant text-body-md">
-                  {loading ? (
-                    <tr>
-                      <td colSpan={5} className="py-xl text-center text-light-on-surface-variant">
-                        Loading payment records...
+        {/* Transactions Table */}
+        <section className="bg-light-surface-container-lowest border border-light-outline-variant rounded-md shadow-sm overflow-hidden">
+          <div className="px-lg py-md border-b border-light-outline-variant bg-light-surface-container-low/50">
+            <h2 className="font-headline text-headline-sm text-light-on-surface font-semibold m-0">
+              Payment Receipts &amp; Ledger ({transactions.length})
+            </h2>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-light-outline-variant bg-light-surface-container-low/30 text-light-on-surface-variant font-label text-label-sm">
+                  <th className="px-md py-md">Receipt No</th>
+                  <th className="px-md py-md">Event &amp; Club</th>
+                  <th className="px-md py-md">Date</th>
+                  <th className="px-md py-md">Amount</th>
+                  <th className="px-md py-md">Status</th>
+                  <th className="px-md py-md text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-light-outline-variant">
+                {loading ? (
+                  <tr><td colSpan={6} className="p-xl text-center">Loading transactions...</td></tr>
+                ) : transactions.length === 0 ? (
+                  <tr><td colSpan={6} className="p-xl text-center">No payment transactions recorded.</td></tr>
+                ) : (
+                  transactions.map((tx) => (
+                    <tr key={tx.id} className="hover:bg-light-surface-container-low/30">
+                      <td className="px-md py-md font-mono text-mono-md text-light-primary whitespace-nowrap">
+                        {tx.receipt_no}
                       </td>
-                    </tr>
-                  ) : (
-                    transactions.map((tx) => {
-                      const isSelected = selectedTx?.id === tx.id;
-
-                      return (
-                        <tr
-                          key={tx.id}
-                          onClick={() => setSelectedTx(tx)}
-                          className={`cursor-pointer transition-colors ${
-                            isSelected
-                              ? 'bg-light-primary-container/20 ring-1 ring-inset ring-light-primary'
-                              : 'hover:bg-light-surface-container-low'
+                      <td className="px-md py-md">
+                        <div className="font-title text-title-md text-light-on-surface font-medium">{tx.event_title}</div>
+                        <div className="font-label text-label-sm text-light-on-surface-variant">{tx.club_name}</div>
+                      </td>
+                      <td className="px-md py-md font-body text-body-md text-light-on-surface-variant whitespace-nowrap">
+                        {tx.date}
+                      </td>
+                      <td className="px-md py-md font-mono font-bold text-light-on-surface tabular-nums whitespace-nowrap">
+                        LKR {tx.amount.toLocaleString()}
+                      </td>
+                      <td className="px-md py-md whitespace-nowrap">
+                        <span
+                          className={`px-sm py-0.5 rounded-full font-label text-label-sm ${
+                            tx.status === 'Successful'
+                              ? 'bg-success-container text-on-success-container'
+                              : tx.status === 'Pending'
+                              ? 'bg-warning-container text-on-warning-container'
+                              : tx.status === 'Refund Completed'
+                              ? 'bg-info-container text-on-info-container'
+                              : 'bg-light-error-container text-light-on-error-container'
                           }`}
                         >
-                          <td className="py-md px-md">
-                            <div className="flex flex-col">
-                              <span className="font-title text-title-md font-semibold text-light-on-surface">
-                                {tx.event_title}
-                              </span>
-                              <span className="text-label-sm text-light-secondary font-medium">
-                                {tx.club_name}
-                              </span>
-                            </div>
-                          </td>
-
-                          <td className="py-md px-md font-mono text-title-md font-bold text-light-on-surface whitespace-nowrap">
-                            LKR {tx.amount.toFixed(2)}
-                          </td>
-
-                          <td className="py-md px-md font-body text-light-on-surface-variant whitespace-nowrap">
-                            {tx.date}
-                          </td>
-
-                          <td className="py-md px-md whitespace-nowrap">
-                            <StatusChip
-                              label={tx.status}
-                              status={
-                                tx.status === 'Successful'
-                                  ? 'confirmed'
-                                  : tx.status === 'Pending'
-                                  ? 'payment_pending'
-                                  : 'neutral'
-                              }
-                            />
-                          </td>
-
-                          <td className="py-md px-md text-right whitespace-nowrap">
-                            {tx.status === 'Pending' ? (
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handlePay(tx.id);
-                                }}
-                                disabled={paying}
-                                className="px-md py-xs rounded bg-warning text-on-warning font-label text-label-md font-bold hover:opacity-90 cursor-pointer border-0 shadow-sm"
-                              >
-                                {paying ? 'Processing...' : 'Pay Now'}
-                              </button>
-                            ) : tx.refund_id ? (
-                              <Link
-                                to="/refund-status"
-                                onClick={(e) => e.stopPropagation()}
-                                className="font-label text-label-sm text-light-secondary hover:underline font-semibold"
-                              >
-                                View Refund
-                              </Link>
-                            ) : (
-                              <span className="font-label text-label-sm text-light-primary font-semibold">
-                                Receipt Available
-                              </span>
-                            )}
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
+                          {tx.status}
+                        </span>
+                      </td>
+                      <td className="px-md py-md text-right whitespace-nowrap">
+                        {tx.status === 'Pending' ? (
+                          <button
+                            type="button"
+                            onClick={() => handlePayNow({ transactionId: tx.id, eventTitle: tx.event_title, amount: tx.amount })}
+                            className="px-sm py-xs rounded bg-light-primary text-light-on-primary font-label text-label-sm font-semibold border-0 cursor-pointer"
+                          >
+                            Pay Now
+                          </button>
+                        ) : tx.status === 'Successful' && !tx.refund_id ? (
+                          <button
+                            type="button"
+                            onClick={() => setRefundTargetTx(tx)}
+                            className="px-sm py-xs rounded border border-light-outline-variant bg-transparent text-light-on-surface font-label text-label-sm font-medium cursor-pointer hover:bg-light-surface-container-low"
+                          >
+                            Request Refund
+                          </button>
+                        ) : tx.refund_id ? (
+                          <Link to="/refunds" className="font-label text-label-sm text-light-primary no-underline hover:underline">
+                            Refund {tx.refund_id}
+                          </Link>
+                        ) : (
+                          <span className="text-label-sm text-light-on-surface-variant">—</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
-        </div>
+        </section>
 
-        {/* Right Column (4 cols): Verified Receipt Details */}
-        <div className="lg:col-span-4 sticky top-24 flex flex-col gap-md">
-          {selectedTx && (
-            <div className="bg-light-surface-container-lowest border border-light-outline-variant rounded-md p-lg flex flex-col gap-md shadow-sm">
-              <div className="flex items-center gap-xs text-success">
-                <span className="material-symbols-outlined text-[24px]">verified</span>
-                <span className="font-headline text-title-lg font-bold text-light-on-surface">
-                  Official E-Receipt
-                </span>
-              </div>
-
-              <div className="border-b border-light-outline-variant pb-md flex flex-col gap-xs">
-                <span className="text-label-sm text-light-on-surface-variant font-label">
-                  Receipt Reference
-                </span>
-                <span className="font-mono text-mono-md font-bold text-light-primary px-sm py-0.5 rounded bg-light-surface-container-high inline-block self-start">
-                  {selectedTx.receipt_no}
-                </span>
-              </div>
-
-              <div className="flex flex-col gap-xs text-body-md text-light-on-surface-variant">
-                <div className="flex justify-between py-xs">
-                  <span>Event:</span>
-                  <span className="font-semibold text-light-on-surface text-right">
-                    {selectedTx.event_title}
-                  </span>
-                </div>
-                <div className="flex justify-between py-xs">
-                  <span>Beneficiary:</span>
-                  <span className="font-semibold text-light-on-surface text-right">
-                    {selectedTx.club_name}
-                  </span>
-                </div>
-                <div className="flex justify-between py-xs">
-                  <span>Transaction Date:</span>
-                  <span className="font-semibold text-light-on-surface">{selectedTx.date}</span>
-                </div>
-                <div className="flex justify-between py-xs">
-                  <span>Payment Status:</span>
-                  <StatusChip
-                    label={selectedTx.status}
-                    status={
-                      selectedTx.status === 'Successful'
-                        ? 'confirmed'
-                        : selectedTx.status === 'Pending'
-                        ? 'payment_pending'
-                        : 'neutral'
-                    }
-                  />
-                </div>
-              </div>
-
-              <div className="bg-light-surface-container-low rounded p-md flex flex-col gap-xs border border-light-outline-variant/60">
-                <span className="text-label-sm text-light-on-surface-variant font-label">
-                  Total Amount Paid
-                </span>
-                <span className="font-display text-headline-md font-bold text-light-primary font-mono">
-                  LKR {selectedTx.amount.toFixed(2)}
-                </span>
-              </div>
-
-              {selectedTx.status === 'Successful' && (
-                <Link
-                  to="/my-qr"
-                  className="w-full py-xs rounded bg-light-primary text-light-on-primary font-label text-label-md font-semibold hover:bg-light-primary-container transition-colors flex items-center justify-center gap-xs no-underline shadow-sm"
+        {refundTargetTx && (
+          <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-md">
+            <form
+              onSubmit={handleRefundSubmit}
+              className="bg-light-surface-container-lowest rounded-lg max-w-md w-full p-lg border border-light-outline-variant shadow-xl flex flex-col gap-md"
+            >
+              <h2 className="font-headline text-headline-sm text-light-on-surface font-semibold m-0">
+                Request Refund · {refundTargetTx.receipt_no}
+              </h2>
+              <p className="font-body text-body-sm text-light-on-surface-variant m-0">
+                Claiming LKR {refundTargetTx.amount.toLocaleString()} for <strong>{refundTargetTx.event_title}</strong>.
+              </p>
+              <label className="flex flex-col gap-xs">
+                <span className="font-label text-label-md font-semibold">Reason for Refund</span>
+                <textarea
+                  rows={3}
+                  required
+                  value={refundReason}
+                  onChange={(e) => setRefundReason(e.target.value)}
+                  placeholder="e.g., Schedule clash with lab examination"
+                  className="px-md py-sm rounded border border-light-outline bg-light-surface-container-lowest resize-none"
+                />
+              </label>
+              <div className="flex justify-end gap-sm">
+                <button
+                  type="button"
+                  onClick={() => setRefundTargetTx(null)}
+                  className="px-md py-xs rounded border border-light-outline-variant bg-transparent cursor-pointer"
                 >
-                  <span className="material-symbols-outlined text-[18px]">qr_code</span>
-                  <span>View Attendance QR Pass</span>
-                </Link>
-              )}
-
-              <button
-                onClick={() => window.print()}
-                className="w-full py-xs rounded bg-light-surface-container-low text-light-primary border border-light-outline-variant font-label text-label-md font-semibold hover:bg-light-surface-container transition-colors flex items-center justify-center gap-xs cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-[18px]">print</span>
-                <span>Download / Print Receipt</span>
-              </button>
-
-              <div className="bg-light-surface-container-low rounded p-sm text-label-sm text-light-on-surface-variant flex items-start gap-xs">
-                <span className="material-symbols-outlined text-[16px] text-light-outline shrink-0 mt-0.5">
-                  lock
-                </span>
-                <span>
-                  Signed with University Comptroller Cryptographic Key. Eligible for student union
-                  reimbursements.
-                </span>
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingRefund}
+                  className="px-md py-xs rounded bg-light-primary text-light-on-primary font-semibold border-0 cursor-pointer"
+                >
+                  {submittingRefund ? 'Submitting...' : 'Submit Refund Request'}
+                </button>
               </div>
-            </div>
-          )}
-        </div>
-      </div>
+            </form>
+          </div>
+        )}
+      </main>
     </AppLayout>
   );
 };

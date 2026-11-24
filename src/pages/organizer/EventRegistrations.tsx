@@ -1,351 +1,261 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { OrganizerLayout } from '../../components/OrganizerLayout';
+import { RegistrationItem, EventItem } from '../../types';
 import { dataService } from '../../services/dataService';
-import { RegistrationItem } from '../../types';
 
 export const EventRegistrations: React.FC = () => {
   const [registrations, setRegistrations] = useState<RegistrationItem[]>([]);
-  const [selectedEventId, setSelectedEventId] = useState<string>('evt-1');
-  const [activeTab, setActiveTab] = useState<'pending' | 'confirmed' | 'payment_pending' | 'checked_in'>('pending');
-  const [actionSuccessMsg, setActionSuccessMsg] = useState<string | null>(null);
+  const [events, setEvents] = useState<EventItem[]>([]);
+  const [selectedEventId, setSelectedEventId] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [loading, setLoading] = useState(true);
+  const [declineTarget, setDeclineTarget] = useState<RegistrationItem | null>(null);
+  const [declineReason, setDeclineReason] = useState('');
 
-  const fetchRegistrations = async () => {
+  const loadData = async () => {
+    setLoading(true);
     try {
-      const data = await dataService.getRegistrations();
-      setRegistrations(data);
-    } catch (err) {
-      console.warn('Error fetching registrations:', err);
+      const [regs, evs] = await Promise.all([
+        dataService.getRegistrations(),
+        dataService.getEvents(),
+      ]);
+      setRegistrations(regs);
+      setEvents(evs);
+    } finally {
+      setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchRegistrations();
+    loadData();
   }, []);
 
-  const handleApprove = async (id: string, name: string) => {
+  const filtered = registrations.filter((r) => {
+    const matchEvent = selectedEventId === 'all' || r.event_id === selectedEventId;
+    const matchStatus = statusFilter === 'all' || r.status === statusFilter;
+    return matchEvent && matchStatus;
+  });
+
+  const handleApprove = async (id: string) => {
     await dataService.approveRegistration(id);
-    setActionSuccessMsg(`Approved registration for ${name}. Payment link released.`);
-    setTimeout(() => setActionSuccessMsg(null), 4000);
-    fetchRegistrations();
+    await loadData();
   };
 
-  const handleDecline = async (id: string, name: string) => {
-    await dataService.declineRegistration(id, 'Officer review: Eligibility criteria not met.');
-    setActionSuccessMsg(`Declined registration for ${name}.`);
-    setTimeout(() => setActionSuccessMsg(null), 4000);
-    fetchRegistrations();
+  const handleDeclineConfirm = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!declineTarget) return;
+    await dataService.declineRegistration(declineTarget.id, declineReason || 'Seat requirements not met.');
+    setDeclineTarget(null);
+    setDeclineReason('');
+    await loadData();
   };
 
-  const handleCheckIn = async (id: string, name: string) => {
-    await dataService.checkInRegistration(id);
-    setActionSuccessMsg(`Checked in ${name} at venue. Participation badge activated.`);
-    setTimeout(() => setActionSuccessMsg(null), 4000);
-    fetchRegistrations();
-  };
-
-  // Filter registrations by event and status tab
-  const eventRegistrations = registrations.filter((r) => r.event_id === selectedEventId || selectedEventId === 'all');
-
-  const pendingList = eventRegistrations.filter((r) => r.status === 'pending');
-  const confirmedList = eventRegistrations.filter((r) => r.status === 'confirmed');
-  const paymentPendingList = eventRegistrations.filter((r) => r.status === 'payment_pending');
-  const checkedInList = eventRegistrations.filter((r) => r.status === 'checked_in');
-
-  const currentTabList = () => {
-    switch (activeTab) {
-      case 'pending':
-        return pendingList;
-      case 'confirmed':
-        return confirmedList;
-      case 'payment_pending':
-        return paymentPendingList;
-      case 'checked_in':
-        return checkedInList;
-      default:
-        return pendingList;
-    }
-  };
-
-  const exportRosterCsv = () => {
-    const rows = [
-      ['Registration ID', 'Student Name', 'Student ID', 'Category / Activity', 'Status', 'Fee (LKR)'],
-      ...eventRegistrations.map((r) => [
-        r.reg_code,
-        r.user_name || 'Student Member',
-        r.student_id || 'UG/2024/0000',
-        r.activity || 'General',
-        r.status,
-        r.fee.toString(),
-      ]),
-    ];
-    const csvContent = 'data:text/csv;charset=utf-8,' + rows.map((e) => e.join(',')).join('\n');
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `Roster_${selectedEventId}_${Date.now()}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+  const handleExportCSV = () => {
+    const headers = ['RegCode', 'StudentName', 'StudentID', 'Email', 'Event', 'Status', 'CheckIn', 'Fee'];
+    const rows = filtered.map((r) => [
+      r.reg_code,
+      r.user_name || '',
+      r.student_id || '',
+      r.user_email || '',
+      r.event_title,
+      r.status,
+      r.check_in_status || 'not_checked_in',
+      String(r.fee),
+    ]);
+    const csv = [headers, ...rows].map((row) => row.map((v) => `"${v.replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `campuspulse-registrations-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   return (
     <OrganizerLayout>
-      <main className="flex-1 p-xl max-w-[1280px] w-full mx-auto flex flex-col gap-lg">
-        {/* Toast / Feedback Banner */}
-        {actionSuccessMsg && (
-          <div className="bg-success-container text-on-success-container px-lg py-md rounded-md flex items-center justify-between gap-md shadow-sm transition-all">
-            <div className="flex items-center gap-sm">
-              <span className="material-symbols-outlined text-[20px]">check_circle</span>
-              <span className="font-label text-label-md">{actionSuccessMsg}</span>
-            </div>
-            <button
-              onClick={() => setActionSuccessMsg(null)}
-              className="text-on-success-container hover:opacity-75 cursor-pointer bg-transparent border-0 p-0"
-            >
-              <span className="material-symbols-outlined text-[18px]">close</span>
-            </button>
-          </div>
-        )}
-
-        {/* Event Selector & Export */}
-        <div className="flex flex-wrap items-end justify-between gap-md">
+      <main className="p-lg md:p-xl max-w-[1400px] w-full mx-auto flex flex-col gap-xl">
+        <header className="flex flex-col md:flex-row md:items-center justify-between gap-md">
           <div className="flex flex-col gap-xs">
-            <h1 className="font-headline text-headline-lg text-light-on-surface">
-              Event Registrations
+            <h1 className="font-headline text-headline-lg text-light-on-surface font-semibold">
+              Event Registrations &amp; Participant Queue (O09 · O10)
             </h1>
-            <p className="font-body text-body-md text-light-on-surface-variant tabular-nums">
-              University Indoor Games Day · 15 Nov 2026 · {confirmedList.length + checkedInList.length} of 40 seats confirmed
+            <p className="font-body text-body-md text-light-on-surface-variant">
+              Approve manual-approval registrations, export attendee rosters, and enforce live QR gate check-in without manual check-in overrides.
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-sm">
-            <select
-              aria-label="Select event"
-              value={selectedEventId}
-              onChange={(e) => setSelectedEventId(e.target.value)}
-              className="px-md py-sm rounded bg-light-surface-container-lowest border border-light-outline text-light-on-surface font-label text-label-md focus:border-light-primary focus:ring-2 focus:ring-light-primary/20 outline-none"
+          <div className="flex items-center gap-sm flex-wrap">
+            <Link
+              to="/organizer/attendance"
+              className="inline-flex items-center gap-xs px-md py-sm rounded bg-light-primary text-light-on-primary font-label text-label-md font-semibold no-underline"
             >
-              <option value="evt-1">University Indoor Games Day (15 Nov)</option>
-              <option value="evt-7">Inter-Faculty Futsal Cup (29 Nov)</option>
-              <option value="all">All Managed Events</option>
-            </select>
+              <span className="material-symbols-outlined text-[18px]">qr_code_scanner</span>
+              <span>Open Live QR Check-In</span>
+            </Link>
             <button
               type="button"
-              onClick={exportRosterCsv}
-              className="inline-flex items-center gap-xs px-md py-sm rounded bg-light-surface-container-lowest text-light-primary border border-light-outline-variant hover:bg-light-surface-container-low transition-colors duration-state-change font-label text-label-md whitespace-nowrap cursor-pointer"
+              onClick={handleExportCSV}
+              className="inline-flex items-center gap-xs px-md py-sm rounded border border-light-outline-variant bg-light-surface-container-lowest text-light-on-surface font-label text-label-md font-semibold cursor-pointer"
             >
-              <span className="material-symbols-outlined text-[18px]" aria-hidden="true">
-                download
-              </span>
-              <span>Export Roster</span>
+              <span className="material-symbols-outlined text-[18px]">download</span>
+              <span>Export CSV</span>
             </button>
           </div>
+        </header>
+
+        {/* Filters */}
+        <div className="flex flex-wrap gap-md items-center bg-light-surface-container-lowest border border-light-outline-variant rounded-md p-md">
+          <select
+            value={selectedEventId}
+            onChange={(e) => setSelectedEventId(e.target.value)}
+            className="px-md py-xs rounded border border-light-outline bg-light-surface-container-lowest font-body text-body-md"
+          >
+            <option value="all">All Events ({registrations.length} registrations)</option>
+            {events.map((ev) => (
+              <option key={ev.id} value={ev.id}>{ev.title}</option>
+            ))}
+          </select>
+
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="px-md py-xs rounded border border-light-outline bg-light-surface-container-lowest font-body text-body-md"
+          >
+            <option value="all">All Statuses</option>
+            <option value="pending">Pending Manual Approval</option>
+            <option value="payment_pending">Payment Pending</option>
+            <option value="confirmed">Confirmed</option>
+            <option value="checked_in">Checked In (QR Verified)</option>
+            <option value="rejected">Declined / Rejected</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
         </div>
 
-        {/* Filter Tabs */}
-        <div role="tablist" aria-label="Registration status filters" className="flex flex-wrap items-center gap-sm border-b border-light-outline-variant pb-md">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeTab === 'pending'}
-            onClick={() => setActiveTab('pending')}
-            className={`px-md py-xs rounded-full cursor-pointer transition-colors ${
-              activeTab === 'pending'
-                ? 'bg-light-primary text-light-on-primary font-semibold'
-                : 'bg-light-surface-container-lowest text-light-on-surface-variant border border-light-outline-variant hover:bg-light-surface-container-low'
-            }`}
-          >
-            <span className="font-label text-label-md">
-              Pending Review ({pendingList.length})
-            </span>
-          </button>
-
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeTab === 'confirmed'}
-            onClick={() => setActiveTab('confirmed')}
-            className={`px-md py-xs rounded-full cursor-pointer transition-colors ${
-              activeTab === 'confirmed'
-                ? 'bg-light-primary text-light-on-primary font-semibold'
-                : 'bg-light-surface-container-lowest text-light-on-surface-variant border border-light-outline-variant hover:bg-light-surface-container-low'
-            }`}
-          >
-            <span className="font-label text-label-md">
-              Confirmed ({confirmedList.length})
-            </span>
-          </button>
-
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeTab === 'payment_pending'}
-            onClick={() => setActiveTab('payment_pending')}
-            className={`px-md py-xs rounded-full cursor-pointer transition-colors ${
-              activeTab === 'payment_pending'
-                ? 'bg-light-primary text-light-on-primary font-semibold'
-                : 'bg-light-surface-container-lowest text-light-on-surface-variant border border-light-outline-variant hover:bg-light-surface-container-low'
-            }`}
-          >
-            <span className="font-label text-label-md">
-              Payment Pending ({paymentPendingList.length})
-            </span>
-          </button>
-
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeTab === 'checked_in'}
-            onClick={() => setActiveTab('checked_in')}
-            className={`px-md py-xs rounded-full cursor-pointer transition-colors ${
-              activeTab === 'checked_in'
-                ? 'bg-light-primary text-light-on-primary font-semibold'
-                : 'bg-light-surface-container-lowest text-light-on-surface-variant border border-light-outline-variant hover:bg-light-surface-container-low'
-            }`}
-          >
-            <span className="font-label text-label-md">
-              Checked In ({checkedInList.length})
-            </span>
-          </button>
-        </div>
-
-        {/* Registrations Roster Table */}
-        <section aria-label="Student registrations table" className="bg-light-surface-container-lowest border border-light-outline-variant rounded-md overflow-hidden shadow-sm">
+        <section className="bg-light-surface-container-lowest border border-light-outline-variant rounded-md shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="border-b border-light-outline-variant bg-light-surface-container-low">
-                  <th scope="col" className="px-md py-sm font-label text-label-sm text-light-on-surface-variant uppercase tracking-wider">
-                    Registration ID
-                  </th>
-                  <th scope="col" className="px-md py-sm font-label text-label-sm text-light-on-surface-variant uppercase tracking-wider">
-                    Student Name
-                  </th>
-                  <th scope="col" className="px-md py-sm font-label text-label-sm text-light-on-surface-variant uppercase tracking-wider">
-                    Category / Activity
-                  </th>
-                  <th scope="col" className="px-md py-sm font-label text-label-sm text-light-on-surface-variant uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th scope="col" className="px-md py-sm font-label text-label-sm text-light-on-surface-variant uppercase tracking-wider text-right">
-                    Action
-                  </th>
+                <tr className="border-b border-light-outline-variant bg-light-surface-container-low/50 text-light-on-surface-variant font-label text-label-sm">
+                  <th className="px-md py-md">Reg Code</th>
+                  <th className="px-md py-md">Student</th>
+                  <th className="px-md py-md">Event &amp; Track</th>
+                  <th className="px-md py-md">Status</th>
+                  <th className="px-md py-md">Attendance</th>
+                  <th className="px-md py-md text-right">Officer Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-light-outline-variant">
-                {currentTabList().map((reg) => (
-                  <tr key={reg.id} className="hover:bg-light-surface-container-low/50 transition-colors">
-                    <td className="px-md py-md font-mono text-mono-md text-light-on-surface-variant tabular-nums whitespace-nowrap">
-                      {reg.reg_code}
-                    </td>
-                    <td className="px-md py-md">
-                      <div className="flex flex-col">
-                        <span className="font-title text-title-md text-light-on-surface font-semibold whitespace-nowrap">
-                          {reg.user_name || 'Nethmi Perera'}
-                        </span>
-                        <span className="font-mono text-mono-md text-light-on-surface-variant">
-                          {reg.student_id || 'UG/2024/CS/0142'}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-md py-md font-body text-body-md text-light-on-surface whitespace-nowrap">
-                      {reg.activity || 'Indoor Games Selection'}
-                    </td>
-                    <td className="px-md py-md whitespace-nowrap">
-                      {reg.status === 'pending' && (
-                        <span className="inline-flex items-center gap-xs px-sm py-xs rounded-full bg-info-container text-on-info-container">
-                          <span className="material-symbols-outlined text-[14px]" aria-hidden="true">
-                            hourglass_top
-                          </span>
-                          <span className="font-label text-label-sm">
-                            Pending Review
-                          </span>
-                        </span>
-                      )}
-                      {reg.status === 'confirmed' && (
-                        <span className="inline-flex items-center gap-xs px-sm py-xs rounded-full bg-success-container text-on-success-container">
-                          <span className="material-symbols-outlined text-[14px]" aria-hidden="true">
-                            check_circle
-                          </span>
-                          <span className="font-label text-label-sm">
-                            Confirmed
-                          </span>
-                        </span>
-                      )}
-                      {reg.status === 'payment_pending' && (
-                        <span className="inline-flex items-center gap-xs px-sm py-xs rounded-full bg-warning-container text-on-warning-container">
-                          <span className="material-symbols-outlined text-[14px]" aria-hidden="true">
-                            timer
-                          </span>
-                          <span className="font-label text-label-sm">
-                            Payment Pending
-                          </span>
-                        </span>
-                      )}
-                      {reg.status === 'checked_in' && (
-                        <span className="inline-flex items-center gap-xs px-sm py-xs rounded-full bg-light-secondary-container text-light-on-secondary-container">
-                          <span className="material-symbols-outlined text-[14px]" aria-hidden="true">
-                            qr_code_scanner
-                          </span>
-                          <span className="font-label text-label-sm">
-                            Checked In {reg.checked_in_time ? `(${reg.checked_in_time})` : ''}
-                          </span>
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-md py-md text-right whitespace-nowrap">
-                      {reg.status === 'pending' && (
-                        <div className="inline-flex items-center gap-sm">
-                          <button
-                            type="button"
-                            onClick={() => handleApprove(reg.id, reg.user_name || 'Applicant')}
-                            className="px-md py-xs rounded bg-light-primary text-light-on-primary hover:bg-light-primary-container transition-colors duration-state-change font-label text-label-md cursor-pointer"
-                          >
-                            Approve
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => handleDecline(reg.id, reg.user_name || 'Applicant')}
-                            className="px-md py-xs rounded bg-light-surface-container-lowest text-light-error border border-light-outline-variant hover:bg-light-error-container transition-colors duration-state-change font-label text-label-md cursor-pointer"
-                          >
-                            Decline
-                          </button>
+                {loading ? (
+                  <tr><td colSpan={6} className="p-xl text-center">Loading registrations...</td></tr>
+                ) : filtered.length === 0 ? (
+                  <tr><td colSpan={6} className="p-xl text-center">No registrations match your filter.</td></tr>
+                ) : (
+                  filtered.map((reg) => (
+                    <tr key={reg.id} className="hover:bg-light-surface-container-low/30">
+                      <td className="px-md py-md font-mono text-mono-md text-light-primary whitespace-nowrap">
+                        {reg.reg_code}
+                      </td>
+                      <td className="px-md py-md">
+                        <div className="font-title text-title-md text-light-on-surface font-medium">
+                          {reg.user_name || 'Student Participant'}
                         </div>
-                      )}
-                      {reg.status === 'confirmed' && (
-                        <button
-                          type="button"
-                          onClick={() => handleCheckIn(reg.id, reg.user_name || 'Applicant')}
-                          className="px-md py-xs rounded bg-light-surface-container-lowest text-light-primary border border-light-outline-variant hover:bg-light-surface-container-low transition-colors duration-state-change font-label text-label-md cursor-pointer"
+                        <div className="font-mono text-mono-sm text-light-on-surface-variant">
+                          {reg.student_id || 'UG/2024'}
+                        </div>
+                      </td>
+                      <td className="px-md py-md">
+                        <div className="font-body text-body-md text-light-on-surface">{reg.event_title}</div>
+                        <div className="font-label text-label-sm text-light-on-surface-variant">{reg.activity || 'Participant'}</div>
+                      </td>
+                      <td className="px-md py-md whitespace-nowrap">
+                        <span
+                          className={`px-sm py-0.5 rounded-full font-label text-label-sm ${
+                            reg.status === 'confirmed' || reg.status === 'checked_in'
+                              ? 'bg-success-container text-on-success-container'
+                              : reg.status === 'pending' || reg.status === 'payment_pending'
+                              ? 'bg-warning-container text-on-warning-container'
+                              : 'bg-light-error-container text-light-on-error-container'
+                          }`}
                         >
-                          Check In
-                        </button>
-                      )}
-                      {reg.status === 'payment_pending' && (
-                        <span className="font-mono text-mono-md text-warning font-medium">
-                          Hold: LKR {reg.fee}
+                          {reg.status.replace('_', ' ')}
                         </span>
-                      )}
-                      {reg.status === 'checked_in' && (
-                        <span className="inline-flex items-center gap-xs font-label text-label-sm text-success font-semibold">
-                          <span className="material-symbols-outlined text-[16px]">verified</span>
-                          Badge Active
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-
-                {currentTabList().length === 0 && (
-                  <tr>
-                    <td colSpan={5} className="px-lg py-xl text-center text-light-on-surface-variant font-body text-body-md">
-                      No registrations found in this category.
-                    </td>
-                  </tr>
+                      </td>
+                      <td className="px-md py-md font-label text-label-sm text-light-on-surface-variant whitespace-nowrap">
+                        {reg.check_in_status === 'checked_in'
+                          ? `Verified (${reg.checked_in_time || 'QR'})`
+                          : 'Awaiting QR Gate Scan'}
+                      </td>
+                      <td className="px-md py-md text-right whitespace-nowrap">
+                        {reg.status === 'pending' ? (
+                          <div className="inline-flex gap-xs">
+                            <button
+                              type="button"
+                              onClick={() => handleApprove(reg.id)}
+                              className="px-sm py-xs rounded bg-light-primary text-light-on-primary font-label text-label-sm border-0 cursor-pointer"
+                            >
+                              Approve
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setDeclineTarget(reg)}
+                              className="px-sm py-xs rounded bg-light-error-container text-light-on-error-container font-label text-label-sm border-0 cursor-pointer"
+                            >
+                              Decline
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="font-label text-label-sm text-light-on-surface-variant">
+                            {reg.status === 'confirmed' ? 'QR Ready' : '—'}
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  ))
                 )}
               </tbody>
             </table>
           </div>
         </section>
+
+        {declineTarget && (
+          <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-md">
+            <form
+              onSubmit={handleDeclineConfirm}
+              className="bg-light-surface-container-lowest rounded-lg max-w-md w-full p-lg border border-light-outline-variant shadow-xl flex flex-col gap-md"
+            >
+              <h2 className="font-headline text-headline-sm text-light-error font-semibold m-0">
+                Decline Registration · {declineTarget.reg_code}
+              </h2>
+              <label className="flex flex-col gap-xs">
+                <span className="font-label text-label-md font-semibold">Reason shown to student</span>
+                <textarea
+                  rows={3}
+                  required
+                  value={declineReason}
+                  onChange={(e) => setDeclineReason(e.target.value)}
+                  placeholder="e.g., Prerequisites or faculty eligibility requirement not satisfied."
+                  className="px-md py-sm rounded border border-light-outline bg-light-surface-container-lowest resize-none"
+                />
+              </label>
+              <div className="flex justify-end gap-sm">
+                <button
+                  type="button"
+                  onClick={() => setDeclineTarget(null)}
+                  className="px-md py-xs rounded border border-light-outline-variant bg-transparent cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-md py-xs rounded bg-light-error text-white font-semibold border-0 cursor-pointer"
+                >
+                  Confirm Decline
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
       </main>
     </OrganizerLayout>
   );

@@ -1,8 +1,9 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { currentAdmin } from '../data/mockData';
+import { useAuth } from '../context/AuthContext';
 
 export const AdminSidebar: React.FC = () => {
+  const { user } = useAuth();
   const navItems = [
     {
       label: 'Dashboard',
@@ -24,6 +25,11 @@ export const AdminSidebar: React.FC = () => {
       label: 'Merchants & Devices',
       to: '/admin/merchants',
       icon: 'point_of_sale',
+    },
+    {
+      label: 'Roster & System Config',
+      to: '/admin/governance',
+      icon: 'tune',
     },
     {
       label: 'System Audits',
@@ -90,7 +96,7 @@ export const AdminSidebar: React.FC = () => {
           Central Administrator
         </span>
         <span className="font-mono text-mono-md text-light-on-surface-variant font-medium">
-          {currentAdmin.staff_id}
+          {user?.staff_id || 'ADM/SYS/0089'}
         </span>
       </div>
     </aside>

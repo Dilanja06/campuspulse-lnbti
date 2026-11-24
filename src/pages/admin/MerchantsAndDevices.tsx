@@ -1,293 +1,291 @@
 import React, { useEffect, useState } from 'react';
 import { AdminLayout } from '../../components/AdminLayout';
-import { dataService } from '../../services/dataService';
 import { PaymentMerchant, QRScannerDevice } from '../../types';
+import { dataService } from '../../services/dataService';
 
 export const MerchantsAndDevices: React.FC = () => {
   const [merchants, setMerchants] = useState<PaymentMerchant[]>([]);
   const [devices, setDevices] = useState<QRScannerDevice[]>([]);
-  const [showPairModal, setShowPairModal] = useState(false);
-  const [newDeviceId, setNewDeviceId] = useState('DEV-QR-018');
-  const [newHardwareOfficer, setNewHardwareOfficer] = useState('');
-  const [newEvent, setNewEvent] = useState('University Indoor Games Day');
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const fetchData = async () => {
+  const [showMerchantModal, setShowMerchantModal] = useState(false);
+  const [merchName, setMerchName] = useState('');
+  const [merchDesc, setMerchDesc] = useState('');
+  const [merchSettlement, setMerchSettlement] = useState('LNBTI Bursar Trust Account');
+
+  const [showDeviceModal, setShowDeviceModal] = useState(false);
+  const [devId, setDevId] = useState('');
+  const [devOfficer, setDevOfficer] = useState('');
+  const [devEvent, setDevEvent] = useState('All Authorized Venues');
+
+  const loadInfra = async () => {
+    setLoading(true);
     try {
-      const [merchData, devData] = await Promise.all([
+      const [mList, dList] = await Promise.all([
         dataService.getPaymentMerchants(),
         dataService.getQRDevices(),
       ]);
-      setMerchants(merchData);
-      setDevices([...devData]);
-    } catch (err) {
-      console.warn('Error fetching merchants & devices:', err);
+      setMerchants(mList);
+      setDevices(dList);
+    } finally {
+      setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchData();
+    loadInfra();
   }, []);
 
-  const handleRevokeDevice = async (id: string, hardware: string) => {
-    await dataService.revokeQRDevice(id);
-    await dataService.logAuditEvent(`Revoked QR Scanner Authorization: ${hardware}`, id);
-    setToastMessage(`Revoked scanning authorization for device ${id}.`);
-    setTimeout(() => setToastMessage(null), 4000);
-    fetchData();
+  const handleCreateMerchant = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!merchName.trim()) return;
+    await dataService.createPaymentMerchant({
+      name: merchName.trim(),
+      description: merchDesc.trim() || 'Provisioned institutional settlement endpoint.',
+      status: 'Live',
+      settlement: merchSettlement.trim(),
+    });
+    setShowMerchantModal(false);
+    setMerchName('');
+    setMerchDesc('');
+    await loadInfra();
+  };
+
+  const handleToggleMerchant = async (id: string) => {
+    await dataService.toggleMerchantStatus(id);
+    await loadInfra();
   };
 
   const handlePairDevice = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newHardwareOfficer) return;
+    if (!devId.trim() || !devOfficer.trim()) return;
     await dataService.pairQRDevice({
-      device_id: newDeviceId,
-      hardware_officer: newHardwareOfficer,
-      assigned_event: newEvent,
+      device_id: devId.trim().toUpperCase(),
+      hardware_officer: devOfficer.trim(),
+      assigned_event: devEvent.trim(),
       status: 'Authorized',
     });
-    await dataService.logAuditEvent(`Paired QR Scanner Device (${newEvent})`, newDeviceId);
-    setShowPairModal(false);
-    setNewHardwareOfficer('');
-    setToastMessage(`Device ${newDeviceId} successfully paired and authorized.`);
-    setTimeout(() => setToastMessage(null), 4000);
-    fetchData();
+    setShowDeviceModal(false);
+    setDevId('');
+    setDevOfficer('');
+    await loadInfra();
+  };
+
+  const handleRevokeDevice = async (id: string) => {
+    await dataService.revokeQRDevice(id);
+    await loadInfra();
   };
 
   return (
     <AdminLayout>
-      <main className="flex-1 p-xl max-w-[1280px] w-full mx-auto flex flex-col gap-xl">
-        {/* Toast Notification */}
-        {toastMessage && (
-          <div className="bg-success-container text-on-success-container px-lg py-md rounded-md flex items-center justify-between gap-md shadow-sm transition-all">
-            <div className="flex items-center gap-sm">
-              <span className="material-symbols-outlined text-[20px]">check_circle</span>
-              <span className="font-label text-label-md">{toastMessage}</span>
-            </div>
-            <button
-              onClick={() => setToastMessage(null)}
-              className="text-on-success-container hover:opacity-75 cursor-pointer bg-transparent border-0 p-0"
-            >
-              <span className="material-symbols-outlined text-[18px]">close</span>
-            </button>
-          </div>
-        )}
-
-        <div className="flex flex-col gap-xs">
-          <h1 className="font-headline text-headline-lg text-light-on-surface">
-            Merchants &amp; QR Devices
+      <main className="p-lg md:p-xl max-w-[1400px] w-full mx-auto flex flex-col gap-xl">
+        <header className="flex flex-col gap-xs">
+          <h1 className="font-headline text-headline-lg text-light-on-surface font-semibold m-0">
+            Payment Merchants &amp; QR Gate Devices (A07 · A08)
           </h1>
-          <p className="font-body text-body-md text-light-on-surface-variant">
-            Configure university payment merchant accounts and authorize mobile devices for event-day QR attendance scanning.
+          <p className="font-body text-body-md text-light-on-surface-variant m-0">
+            Configure institutional PayHere merchant gateways and manage hardware QR gate scanner authorizations.
           </p>
-        </div>
+        </header>
 
-        {/* Payment Merchants Section */}
-        <section aria-label="Payment merchants" className="flex flex-col gap-md">
-          <div className="flex items-center justify-between gap-md">
-            <h2 className="font-headline text-headline-sm text-light-on-surface">
-              Payment Gateways &amp; Merchants
-            </h2>
+        {/* Payment Merchants */}
+        <section className="flex flex-col gap-md">
+          <div className="flex items-center justify-between">
+            <h2 className="font-headline text-headline-sm font-semibold m-0">Payment Gateways ({merchants.length})</h2>
             <button
               type="button"
-              onClick={() => {
-                setToastMessage('Payment merchant configurations are synchronized with the bursar.');
-                setTimeout(() => setToastMessage(null), 3000);
-              }}
-              className="px-md py-xs rounded bg-light-surface-container-lowest text-light-primary border border-light-outline-variant hover:bg-light-surface-container-low transition-colors duration-state-change font-label text-label-md cursor-pointer"
+              onClick={() => setShowMerchantModal(true)}
+              className="px-md py-xs rounded bg-light-primary text-light-on-primary font-label text-label-md font-semibold border-0 cursor-pointer"
             >
-              Add Merchant
+              + Add Merchant
             </button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-lg items-stretch">
-            {merchants.map((merch) => (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-md">
+            {merchants.map((m) => (
               <article
-                key={merch.id}
-                className="h-full bg-light-surface-container-lowest border border-light-outline-variant rounded-md p-lg flex flex-col justify-between gap-md shadow-sm"
+                key={m.id}
+                className="bg-light-surface-container-lowest border border-light-outline-variant rounded-md p-lg flex flex-col justify-between gap-md shadow-sm"
               >
-                <div className="flex items-start justify-between gap-md">
-                  <div className="flex flex-col gap-xs">
-                    <span className="font-mono text-mono-md text-light-on-surface-variant">
-                      {merch.id.toUpperCase()}
+                <div>
+                  <div className="flex items-center justify-between gap-xs mb-xs">
+                    <h3 className="font-title text-title-md font-bold m-0">{m.name}</h3>
+                    <span
+                      className={`px-sm py-0.5 rounded-full font-label text-label-sm ${
+                        m.status === 'Live'
+                          ? 'bg-success-container text-on-success-container'
+                          : 'bg-warning-container text-on-warning-container'
+                      }`}
+                    >
+                      {m.status}
                     </span>
-                    <h3 className="font-title text-title-lg text-light-on-surface font-semibold">
-                      {merch.name}
-                    </h3>
-                    <p className="font-body text-body-md text-light-on-surface-variant">
-                      {merch.description}
-                    </p>
                   </div>
-                  <span className="inline-flex items-center gap-xs px-sm py-xs rounded-full bg-success-container text-on-success-container whitespace-nowrap">
-                    <span className="material-symbols-outlined text-[14px]">check_circle</span>
-                    <span className="font-label text-label-sm">{merch.status}</span>
+                  <p className="font-body text-body-sm text-light-on-surface-variant m-0">{m.description}</p>
+                  <span className="block font-label text-label-sm text-light-primary mt-sm">
+                    Settlement: {m.settlement}
                   </span>
                 </div>
-                <div className="flex items-center justify-between gap-md pt-md border-t border-light-outline-variant">
-                  <span className="font-mono text-mono-md text-light-on-surface tabular-nums">
-                    {merch.settlement}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setToastMessage(`Opened gateway settings for ${merch.name}.`);
-                      setTimeout(() => setToastMessage(null), 3000);
-                    }}
-                    className="font-label text-label-md text-light-primary hover:underline whitespace-nowrap cursor-pointer bg-transparent border-0 p-0"
-                  >
-                    Configure
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => handleToggleMerchant(m.id)}
+                  className="self-start px-md py-xs rounded border border-light-outline-variant bg-transparent font-label text-label-sm font-semibold cursor-pointer hover:bg-light-surface-container-low"
+                >
+                  {m.status === 'Live' ? 'Switch to Maintenance' : 'Set Gateway Live'}
+                </button>
               </article>
             ))}
           </div>
         </section>
 
-        {/* QR Attendance Scanners Section */}
-        <section aria-label="Authorized QR scanners" className="flex flex-col gap-md">
-          <div className="flex items-center justify-between gap-md">
-            <h2 className="font-headline text-headline-sm text-light-on-surface">
-              Authorized QR Attendance Scanners
+        {/* QR Devices */}
+        <section className="flex flex-col gap-md">
+          <div className="flex items-center justify-between">
+            <h2 className="font-headline text-headline-sm font-semibold m-0">
+              Authorized QR Gate Devices ({devices.length})
             </h2>
             <button
               type="button"
-              onClick={() => setShowPairModal(true)}
-              className="px-md py-xs rounded bg-light-primary text-light-on-primary hover:bg-light-primary-container transition-colors duration-state-change font-label text-label-md whitespace-nowrap cursor-pointer"
+              onClick={() => setShowDeviceModal(true)}
+              className="px-md py-xs rounded bg-light-primary text-light-on-primary font-label text-label-md font-semibold border-0 cursor-pointer"
             >
-              Pair New Device
+              + Pair Scanner Device
             </button>
           </div>
 
-          {/* Modal for Pairing Device */}
-          {showPairModal && (
-            <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-md">
-              <div className="bg-light-surface-container-lowest border border-light-outline-variant rounded-md p-xl max-w-md w-full flex flex-col gap-md shadow-lg">
-                <h2 className="font-headline text-headline-sm text-light-on-surface">
-                  Pair &amp; Authorize QR Scanner
-                </h2>
-                <form onSubmit={handlePairDevice} className="flex flex-col gap-md">
-                  <div className="flex flex-col gap-xs">
-                    <label className="font-label text-label-md text-light-on-surface">
-                      Device Hardware ID
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={newDeviceId}
-                      onChange={(e) => setNewDeviceId(e.target.value)}
-                      className="px-md py-sm rounded bg-light-surface-container-low border border-light-outline text-light-on-surface font-body text-body-md focus:border-light-primary outline-none"
-                    />
-                  </div>
-                  <div className="flex flex-col gap-xs">
-                    <label className="font-label text-label-md text-light-on-surface">
-                      Hardware Model &amp; Officer Name
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="e.g. iPad Air · Chamod Perera"
-                      value={newHardwareOfficer}
-                      onChange={(e) => setNewHardwareOfficer(e.target.value)}
-                      className="px-md py-sm rounded bg-light-surface-container-low border border-light-outline text-light-on-surface font-body text-body-md focus:border-light-primary outline-none"
-                    />
-                  </div>
-                  <div className="flex flex-col gap-xs">
-                    <label className="font-label text-label-md text-light-on-surface">
-                      Assigned Event
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={newEvent}
-                      onChange={(e) => setNewEvent(e.target.value)}
-                      className="px-md py-sm rounded bg-light-surface-container-low border border-light-outline text-light-on-surface font-body text-body-md focus:border-light-primary outline-none"
-                    />
-                  </div>
-                  <div className="flex items-center justify-end gap-sm pt-sm">
-                    <button
-                      type="button"
-                      onClick={() => setShowPairModal(false)}
-                      className="px-md py-sm rounded bg-light-surface-container-lowest text-light-on-surface border border-light-outline-variant hover:bg-light-surface-container-low font-label text-label-md cursor-pointer"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      className="px-md py-sm rounded bg-light-primary text-light-on-primary hover:bg-light-primary-container font-label text-label-md cursor-pointer"
-                    >
-                      Authorize Scanner
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </div>
-          )}
-
-          <div className="bg-light-surface-container-lowest border border-light-outline-variant rounded-md overflow-hidden shadow-sm">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-light-surface-container-low border-b border-light-outline-variant">
-                    <th scope="col" className="px-md py-md font-label text-label-sm text-light-on-surface-variant uppercase tracking-wider">
-                      Device ID
-                    </th>
-                    <th scope="col" className="px-md py-md font-label text-label-sm text-light-on-surface-variant uppercase tracking-wider">
-                      Hardware / Officer
-                    </th>
-                    <th scope="col" className="px-md py-md font-label text-label-sm text-light-on-surface-variant uppercase tracking-wider">
-                      Assigned Event
-                    </th>
-                    <th scope="col" className="px-md py-md font-label text-label-sm text-light-on-surface-variant uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th scope="col" className="px-md py-md font-label text-label-sm text-light-on-surface-variant uppercase tracking-wider text-right">
-                      Action
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-light-outline-variant">
-                  {devices.map((dev) => (
-                    <tr key={dev.id} className="hover:bg-light-surface-container-low/40 transition-colors">
-                      <td className="px-md py-md font-mono text-mono-md text-light-on-surface-variant whitespace-nowrap">
-                        {dev.device_id}
+          <div className="bg-light-surface-container-lowest border border-light-outline-variant rounded-md shadow-sm overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-light-outline-variant bg-light-surface-container-low/50 text-light-on-surface-variant font-label text-label-sm">
+                  <th className="px-md py-md">Device ID</th>
+                  <th className="px-md py-md">Assigned Hardware Officer</th>
+                  <th className="px-md py-md">Venue / Event Assignment</th>
+                  <th className="px-md py-md">Authorization</th>
+                  <th className="px-md py-md text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-light-outline-variant">
+                {loading ? (
+                  <tr><td colSpan={5} className="p-xl text-center">Loading scanners...</td></tr>
+                ) : (
+                  devices.map((d) => (
+                    <tr key={d.id}>
+                      <td className="px-md py-md font-mono text-mono-md text-light-primary font-semibold">{d.device_id}</td>
+                      <td className="px-md py-md font-title text-title-md">{d.hardware_officer}</td>
+                      <td className="px-md py-md font-body text-body-md text-light-on-surface-variant">{d.assigned_event}</td>
+                      <td className="px-md py-md">
+                        <span
+                          className={`px-sm py-0.5 rounded-full font-label text-label-sm ${
+                            d.status === 'Authorized'
+                              ? 'bg-success-container text-on-success-container'
+                              : 'bg-light-error-container text-light-on-error-container'
+                          }`}
+                        >
+                          {d.status}
+                        </span>
                       </td>
-                      <td className="px-md py-md font-body text-body-md text-light-on-surface whitespace-nowrap">
-                        {dev.hardware_officer}
-                      </td>
-                      <td className="px-md py-md font-body text-body-md text-light-on-surface-variant whitespace-nowrap">
-                        {dev.assigned_event}
-                      </td>
-                      <td className="px-md py-md whitespace-nowrap">
-                        {dev.status === 'Authorized' ? (
-                          <span className="inline-flex items-center gap-xs px-sm py-xs rounded-full bg-success-container text-on-success-container whitespace-nowrap">
-                            <span className="material-symbols-outlined text-[14px]">check_circle</span>
-                            <span className="font-label text-label-sm">Authorized</span>
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-xs px-sm py-xs rounded-full bg-light-surface-container text-light-on-surface-variant whitespace-nowrap">
-                            <span className="material-symbols-outlined text-[14px]">block</span>
-                            <span className="font-label text-label-sm">Revoked</span>
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-md py-md text-right whitespace-nowrap">
-                        {dev.status === 'Authorized' && (
+                      <td className="px-md py-md text-right">
+                        {d.status === 'Authorized' && (
                           <button
                             type="button"
-                            onClick={() => handleRevokeDevice(dev.id, dev.hardware_officer)}
-                            className="px-md py-xs rounded bg-light-surface-container-lowest text-light-error border border-light-outline-variant hover:bg-light-error-container transition-colors duration-state-change font-label text-label-md cursor-pointer"
+                            onClick={() => handleRevokeDevice(d.id)}
+                            className="px-sm py-xs rounded bg-light-error-container text-light-on-error-container font-label text-label-sm border-0 cursor-pointer"
                           >
-                            Revoke
+                            Revoke Key
                           </button>
                         )}
                       </td>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  ))
+                )}
+              </tbody>
+            </table>
           </div>
         </section>
+
+        {showMerchantModal && (
+          <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-md">
+            <form
+              onSubmit={handleCreateMerchant}
+              className="bg-light-surface-container-lowest rounded-lg max-w-md w-full p-lg border border-light-outline-variant shadow-xl flex flex-col gap-md"
+            >
+              <h2 className="font-headline text-headline-sm font-semibold m-0">Provision Payment Merchant</h2>
+              <input
+                type="text"
+                required
+                value={merchName}
+                onChange={(e) => setMerchName(e.target.value)}
+                placeholder="Merchant Name (e.g., PayHere Sports Gate)"
+                className="px-md py-sm rounded border border-light-outline bg-light-surface-container-lowest"
+              />
+              <input
+                type="text"
+                value={merchDesc}
+                onChange={(e) => setMerchDesc(e.target.value)}
+                placeholder="Gateway purpose"
+                className="px-md py-sm rounded border border-light-outline bg-light-surface-container-lowest"
+              />
+              <input
+                type="text"
+                required
+                value={merchSettlement}
+                onChange={(e) => setMerchSettlement(e.target.value)}
+                placeholder="Settlement Account"
+                className="px-md py-sm rounded border border-light-outline bg-light-surface-container-lowest"
+              />
+              <div className="flex justify-end gap-sm">
+                <button type="button" onClick={() => setShowMerchantModal(false)} className="px-md py-xs rounded border border-light-outline-variant bg-transparent cursor-pointer">
+                  Cancel
+                </button>
+                <button type="submit" className="px-md py-xs rounded bg-light-primary text-light-on-primary font-semibold border-0 cursor-pointer">
+                  Provision Gateway
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {showDeviceModal && (
+          <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-md">
+            <form
+              onSubmit={handlePairDevice}
+              className="bg-light-surface-container-lowest rounded-lg max-w-md w-full p-lg border border-light-outline-variant shadow-xl flex flex-col gap-md"
+            >
+              <h2 className="font-headline text-headline-sm font-semibold m-0">Pair Hardware QR Scanner</h2>
+              <input
+                type="text"
+                required
+                value={devId}
+                onChange={(e) => setDevId(e.target.value)}
+                placeholder="Hardware ID (e.g., GATE-09-EAST)"
+                className="px-md py-sm rounded border border-light-outline bg-light-surface-container-lowest font-mono"
+              />
+              <input
+                type="text"
+                required
+                value={devOfficer}
+                onChange={(e) => setDevOfficer(e.target.value)}
+                placeholder="Hardware Custodian Name"
+                className="px-md py-sm rounded border border-light-outline bg-light-surface-container-lowest"
+              />
+              <input
+                type="text"
+                required
+                value={devEvent}
+                onChange={(e) => setDevEvent(e.target.value)}
+                placeholder="Assigned Event / Venue"
+                className="px-md py-sm rounded border border-light-outline bg-light-surface-container-lowest"
+              />
+              <div className="flex justify-end gap-sm">
+                <button type="button" onClick={() => setShowDeviceModal(false)} className="px-md py-xs rounded border border-light-outline-variant bg-transparent cursor-pointer">
+                  Cancel
+                </button>
+                <button type="submit" className="px-md py-xs rounded bg-light-primary text-light-on-primary font-semibold border-0 cursor-pointer">
+                  Authorize Scanner
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
       </main>
     </AdminLayout>
   );

@@ -1,83 +1,119 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { CoordinatorLayout } from '../../components/CoordinatorLayout';
+import { ClubItem, OfficialClubRecord, ProposalItem } from '../../types';
+import { dataService } from '../../services/dataService';
 
 export const AssignedClubs: React.FC = () => {
-  const clubs = [
-    {
-      id: 'CLB-01',
-      name: 'Sports Club',
-      status: 'Active',
-      stats: '148 members · 3 active events · 1 revision pending',
-      leader: 'Sec: Nethmi Perera',
-    },
-    {
-      id: 'CLB-04',
-      name: 'IEEE Student Branch',
-      status: 'Active',
-      stats: '215 members · 2 active events · 1 proposal pending',
-      leader: 'Chair: Ashan Perera',
-    },
-    {
-      id: 'CLB-07',
-      name: 'Robotics Society',
-      status: 'Active',
-      stats: '94 members · 1 active event · 1 proposal pending',
-      leader: 'Pres: Tharindu W.',
-    },
-  ];
+  const [officialClubs, setOfficialClubs] = useState<OfficialClubRecord[]>([]);
+  const [clubs, setClubs] = useState<ClubItem[]>([]);
+  const [proposals, setProposals] = useState<ProposalItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const [offData, clubData, propData] = await Promise.all([
+          dataService.getOfficialClubs(),
+          dataService.getClubs(),
+          dataService.getProposals(),
+        ]);
+        setOfficialClubs(offData);
+        setClubs(clubData);
+        setProposals(propData);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadData();
+  }, []);
 
   return (
     <CoordinatorLayout>
-      <main className="flex-1 p-xl max-w-[1280px] w-full mx-auto flex flex-col gap-lg">
-        <div className="flex flex-col gap-xs">
-          <h1 className="font-headline text-headline-lg text-light-on-surface">
-            Assigned Clubs
+      <main className="p-lg md:p-xl max-w-[1400px] w-full mx-auto flex flex-col gap-xl">
+        <header className="flex flex-col gap-xs">
+          <h1 className="font-headline text-headline-lg text-light-on-surface font-semibold">
+            Assigned Clubs &amp; Societies
           </h1>
           <p className="font-body text-body-md text-light-on-surface-variant">
-            Student clubs under your faculty oversight for Academic Term 2026.
+            Chartered clubs and societies under your Coordinator faculty oversight.
           </p>
-        </div>
+        </header>
 
-        <section aria-label="Assigned student clubs" className="grid grid-cols-1 md:grid-cols-3 gap-lg items-stretch">
-          {clubs.map((club) => (
-            <article
-              key={club.id}
-              className="h-full bg-light-surface-container-lowest border border-light-outline-variant rounded-md p-lg flex flex-col justify-between gap-md shadow-sm"
-            >
-              <div className="flex flex-col gap-sm">
-                <div className="flex items-center justify-between gap-sm">
-                  <span className="font-mono text-mono-md text-light-on-surface-variant">
-                    {club.id}
-                  </span>
-                  <span className="inline-flex items-center gap-xs px-sm py-xs rounded-full bg-success-container text-on-success-container whitespace-nowrap">
-                    <span className="font-label text-label-sm">
-                      {club.status}
-                    </span>
-                  </span>
-                </div>
-                <h2 className="font-title text-title-lg text-light-on-surface font-semibold">
-                  {club.name}
-                </h2>
-                <p className="font-body text-body-md text-light-on-surface-variant tabular-nums">
-                  {club.stats}
-                </p>
-              </div>
+        {loading ? (
+          <div className="p-xl text-center text-light-on-surface-variant font-body text-body-md">
+            Loading assigned clubs...
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-lg">
+            {officialClubs.map((off) => {
+              const matchingClub = clubs.find((c) => c.name === off.name);
+              const clubProps = proposals.filter((p) => p.club_name === off.name);
+              const pendingCount = clubProps.filter((p) => p.status === 'Pending Review').length;
 
-              <div className="flex items-center justify-between gap-md pt-md border-t border-light-outline-variant">
-                <span className="font-label text-label-sm text-light-on-surface-variant">
-                  {club.leader}
-                </span>
-                <Link
-                  to="/coordinator/proposals"
-                  className="font-label text-label-md text-light-primary hover:underline whitespace-nowrap no-underline font-medium"
+              return (
+                <article
+                  key={off.id}
+                  className="bg-light-surface-container-lowest border border-light-outline-variant rounded-md p-lg flex flex-col gap-md shadow-sm"
                 >
-                  View Proposals
-                </Link>
-              </div>
-            </article>
-          ))}
-        </section>
+                  <div className="flex items-start justify-between gap-md">
+                    <div className="flex flex-col">
+                      <span className="font-mono text-mono-sm text-light-on-surface-variant">
+                        {off.code}
+                      </span>
+                      <h2 className="font-title text-title-lg text-light-on-surface font-semibold">
+                        {off.name}
+                      </h2>
+                    </div>
+                    <span
+                      className={`font-label text-label-sm px-sm py-xs rounded-full whitespace-nowrap ${
+                        off.status === 'Active'
+                          ? 'bg-success-container text-on-success-container'
+                          : 'bg-warning-container text-on-warning-container'
+                      }`}
+                    >
+                      {off.status}
+                    </span>
+                  </div>
+
+                  <p className="font-body text-body-md text-light-on-surface-variant line-clamp-2">
+                    {matchingClub?.description || 'Chartered student club overseen by Faculty Coordinator.'}
+                  </p>
+
+                  <div className="grid grid-cols-2 gap-sm pt-sm border-t border-light-outline-variant text-label-sm">
+                    <div className="flex flex-col">
+                      <span className="text-light-on-surface-variant">Committee Status</span>
+                      <span className="font-semibold text-light-on-surface">{off.committee_status}</span>
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-light-on-surface-variant">Members</span>
+                      <span className="font-semibold text-light-on-surface tabular-nums">
+                        {matchingClub?.member_count ?? 120}
+                      </span>
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-light-on-surface-variant">Faculty Coordinator</span>
+                      <span className="font-semibold text-light-on-surface">{off.coordinator}</span>
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-light-on-surface-variant">Pending Proposals</span>
+                      <span className="font-semibold text-light-primary tabular-nums">{pendingCount}</span>
+                    </div>
+                  </div>
+
+                  <div className="pt-sm flex items-center justify-end border-t border-light-outline-variant">
+                    <Link
+                      to="/coordinator/proposals"
+                      className="font-label text-label-md text-light-primary font-semibold no-underline hover:underline"
+                    >
+                      Review Club Proposals ({clubProps.length}) →
+                    </Link>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        )}
       </main>
     </CoordinatorLayout>
   );

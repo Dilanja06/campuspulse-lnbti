@@ -1,41 +1,60 @@
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { AppLayout } from '../components/AppLayout';
 import { StatusChip } from '../components/StatusChip';
-import { EventItem, RegistrationItem } from '../types';
+import { useAuth } from '../context/AuthContext';
 import { dataService } from '../services/dataService';
-import { getEventCoverImage, getEventFlyerImage } from '../utils/eventImages';
+import { EventItem, RegistrationItem, ClubPostItem } from '../types';
+import { getEventCoverImage } from '../utils/eventImages';
 
 export const EventDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const [event, setEvent] = useState<EventItem | null>(null);
-  const [registration, setRegistration] = useState<RegistrationItem | null>(null);
+  const [userRegistration, setUserRegistration] = useState<RegistrationItem | null>(null);
+  const [attendees, setAttendees] = useState<RegistrationItem[]>([]);
+  const [posts, setPosts] = useState<ClubPostItem[]>([]);
+  const [activeTab, setActiveTab] = useState<'overview' | 'posts' | 'attendees'>('overview');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function loadEvent() {
+    const loadDetails = async () => {
       if (!id) return;
-      setLoading(true);
-      const [ev, regs] = await Promise.all([
-        dataService.getEventById(id),
-        dataService.getRegistrations(),
-      ]);
-      setEvent(ev);
-      const userReg = regs.find((r) => r.event_id === id);
-      if (userReg) setRegistration(userReg);
-      setLoading(false);
-    }
-    loadEvent();
-  }, [id]);
+      try {
+        const [ev, userRegs, evRegs, allPosts] = await Promise.all([
+          dataService.getEventById(id),
+          dataService.getRegistrations({ userId: user?.id, userEmail: user?.email }),
+          dataService.getRegistrationsByEvent(id),
+          dataService.getClubPosts(false),
+        ]);
+        setEvent(ev);
+
+        const activeReg = userRegs.find(
+          (r) => r.event_id === id && r.status !== 'cancelled' && r.status !== 'rejected'
+        );
+        setUserRegistration(activeReg || null);
+
+        setAttendees(
+          evRegs.filter((r) => r.status === 'confirmed' || r.status === 'checked_in')
+        );
+        if (ev) {
+          setPosts(allPosts.filter((p) => p.club_id === ev.club_id || p.club_name === ev.club_name));
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadDetails();
+  }, [id, user?.id, user?.email]);
 
   if (loading) {
     return (
       <AppLayout>
-        <div className="py-2xl text-center">
-          <p className="font-body text-body-lg text-light-on-surface-variant">Loading event details from Supabase...</p>
-        </div>
+        <main className="p-xl max-w-[1100px] mx-auto text-center text-light-on-surface-variant">
+          Loading event details...
+        </main>
       </AppLayout>
     );
   }
@@ -43,250 +62,279 @@ export const EventDetails: React.FC = () => {
   if (!event) {
     return (
       <AppLayout>
-        <div className="bg-light-surface-container-lowest border border-light-outline-variant rounded-md p-2xl text-center flex flex-col items-center gap-md">
-          <span className="material-symbols-outlined text-[48px] text-light-outline">event_busy</span>
-          <h2 className="font-headline text-headline-sm font-bold text-light-on-surface m-0">Event Not Found</h2>
-          <p className="font-body text-body-md text-light-on-surface-variant max-w-md m-0">
-            The requested event ID could not be located in the university database.
-          </p>
-          <Link to="/events" className="px-md py-sm rounded bg-light-primary text-light-on-primary font-label text-label-md font-semibold no-underline">
-            Back to Event Explorer
+        <main className="p-xl max-w-[900px] mx-auto text-center flex flex-col gap-md">
+          <h1 className="font-headline text-headline-md text-light-on-surface font-semibold">
+            Event Edition Not Found
+          </h1>
+          <Link to="/events" className="text-light-primary font-label text-label-md no-underline">
+            ← Back to Explore Events
           </Link>
-        </div>
+        </main>
       </AppLayout>
     );
   }
 
-  const capacityPercent = Math.min(100, Math.round((event.registered / event.capacity) * 100));
-  const remaining = event.capacity - event.registered;
+  const seatsLeft = Math.max(0, event.capacity - event.registered);
+  const canRegister = event.status === 'published' && seatsLeft > 0 && !userRegistration;
 
   return (
     <AppLayout>
-      {/* Top Breadcrumb & Reference ID */}
-      <div className="flex items-center justify-between">
-        <Link
-          to="/events"
-          className="inline-flex items-center gap-xs text-label-md font-label text-light-primary hover:underline no-underline"
-        >
-          <span className="material-symbols-outlined text-[18px]">arrow_back</span>
-          <span>Back to events</span>
-        </Link>
-        <span className="font-mono text-mono-md text-light-on-surface-variant px-sm py-0.5 rounded bg-light-surface-container-high">
-          {event.code}
-        </span>
-      </div>
-
-      {/* Hero Banner */}
-      <div className="h-64 md:h-80 rounded-lg p-xl flex flex-col justify-end text-white relative shadow-sm overflow-hidden bg-slate-900">
-        <img
-          src={getEventCoverImage(event)}
-          alt={event.title}
-          className="absolute inset-0 w-full h-full object-cover"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-black/30" />
-        <div className="absolute top-md right-md z-10">
-          <StatusChip label={event.status} status={event.status} />
+      <main className="p-lg md:p-xl max-w-[1200px] w-full mx-auto flex flex-col gap-xl">
+        <div className="flex items-center gap-xs text-label-md text-light-on-surface-variant">
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            className="inline-flex items-center gap-xs bg-transparent border-0 text-light-on-surface-variant hover:text-light-on-surface cursor-pointer p-0 font-label text-label-md"
+          >
+            <span className="material-symbols-outlined text-[18px]">arrow_back</span>
+            <span>Events</span>
+          </button>
+          <span>/</span>
+          <span className="font-mono text-light-primary">{event.code}</span>
         </div>
-        <div className="flex flex-col gap-xs max-w-3xl z-10">
-          <span className="text-teal-300 font-label text-label-md font-semibold uppercase tracking-wider drop-shadow">
-            {event.category} · Organized by {event.club_name}
-          </span>
-          <h1 className="font-headline text-headline-lg font-bold text-white m-0 drop-shadow-md">
-            {event.title}
-          </h1>
-        </div>
-      </div>
 
-      {/* 12-Column Split: Details & Sticky Registration Action */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-xl items-start">
-        {/* Left Column (8 cols): Event Description, Metadata, Schedule */}
-        <div className="lg:col-span-8 flex flex-col gap-xl">
-          {/* Metadata Grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-md bg-light-surface-container-lowest border border-light-outline-variant rounded-md p-lg shadow-sm">
-            <div className="flex items-start gap-sm">
-              <span className="material-symbols-outlined text-[24px] text-light-primary shrink-0">calendar_today</span>
-              <div className="flex flex-col">
-                <span className="font-label text-label-sm text-light-on-surface-variant font-medium">Date</span>
-                <span className="font-body text-body-md text-light-on-surface font-semibold">{event.start_date}</span>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-sm">
-              <span className="material-symbols-outlined text-[24px] text-light-primary shrink-0">schedule</span>
-              <div className="flex flex-col">
-                <span className="font-label text-label-sm text-light-on-surface-variant font-medium">Time</span>
-                <span className="font-body text-body-md text-light-on-surface font-semibold">{event.time}</span>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-sm">
-              <span className="material-symbols-outlined text-[24px] text-light-primary shrink-0">location_on</span>
-              <div className="flex flex-col">
-                <span className="font-label text-label-sm text-light-on-surface-variant font-medium">Venue</span>
-                <span className="font-body text-body-md text-light-on-surface font-semibold">{event.venue}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* About This Event */}
-          <div className="bg-light-surface-container-lowest border border-light-outline-variant rounded-md p-lg flex flex-col gap-md shadow-sm">
-            <h2 className="font-headline text-headline-sm font-semibold text-light-on-surface m-0">
-              About This Event
-            </h2>
-            <p className="font-body text-body-lg text-light-on-surface-variant leading-relaxed m-0">
-              {event.description}
-            </p>
-          </div>
-
-          {/* Official Event Flyer & Poster */}
-          <div className="bg-light-surface-container-lowest border border-light-outline-variant rounded-md p-lg flex flex-col gap-md shadow-sm">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-xs text-light-primary">
-                <span className="material-symbols-outlined text-[22px]">photo_camera_back</span>
-                <h2 className="font-headline text-headline-sm font-semibold text-light-on-surface m-0">
-                  Official Event Flyer &amp; Poster
-                </h2>
-              </div>
-              <a
-                href={getEventFlyerImage(event)}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-xs font-label text-label-sm text-light-primary hover:underline no-underline"
-              >
-                <span>View Full Resolution</span>
-                <span className="material-symbols-outlined text-[16px]">open_in_new</span>
-              </a>
-            </div>
-
-            <div className="w-full max-h-[460px] rounded-md overflow-hidden bg-slate-900 border border-light-outline-variant flex items-center justify-center relative group">
-              <img
-                src={getEventFlyerImage(event)}
-                alt={`${event.title} Flyer Poster`}
-                className="w-full max-h-[460px] object-cover object-center group-hover:scale-[1.01] transition-transform duration-300"
-              />
-              <div className="absolute bottom-0 inset-x-0 p-md bg-gradient-to-t from-black/85 via-black/40 to-transparent flex items-end justify-between text-white">
-                <span className="font-label text-label-sm backdrop-blur-sm px-sm py-xs rounded bg-black/50 border border-white/10">
-                  {event.club_name} · Official Poster
+        {/* Hero Card */}
+        <section className="bg-light-surface-container-lowest border border-light-outline-variant rounded-lg overflow-hidden shadow-sm">
+          <div className="h-56 md:h-72 relative bg-slate-900">
+            <img
+              src={getEventCoverImage(event)}
+              alt={event.title}
+              className="w-full h-full object-cover"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent flex flex-col justify-end p-lg md:p-xl text-white">
+              <div className="flex items-center gap-sm flex-wrap mb-xs">
+                <span className="px-sm py-0.5 rounded bg-teal-500 text-slate-950 font-label text-label-sm font-bold">
+                  {event.category}
                 </span>
-                <span className="text-xs font-mono opacity-90 px-sm py-xs rounded bg-black/50 border border-white/10">
-                  {event.code}
-                </span>
+                <span className="font-label text-label-md text-slate-200">{event.club_name}</span>
+                {event.manual_approval && (
+                  <span className="px-sm py-0.5 rounded bg-amber-400/90 text-slate-950 font-label text-label-sm font-bold">
+                    Organizer Screening Enabled
+                  </span>
+                )}
               </div>
+              <h1 className="font-headline text-headline-lg md:text-display-sm font-bold m-0 text-white">
+                {event.title}
+              </h1>
             </div>
           </div>
 
-          {/* Event Schedule Timeline */}
-          {event.schedule && event.schedule.length > 0 && (
-            <div className="bg-light-surface-container-lowest border border-light-outline-variant rounded-md p-lg flex flex-col gap-md shadow-sm">
-              <h2 className="font-headline text-headline-sm font-semibold text-light-on-surface m-0">
-                Event Schedule &amp; Itinerary
-              </h2>
-
-              <div className="flex flex-col divide-y divide-light-outline-variant">
-                {event.schedule.map((slot, idx) => (
-                  <div key={idx} className="py-md flex flex-col sm:flex-row gap-sm sm:gap-lg first:pt-0">
-                    <span className="font-mono text-mono-md font-semibold text-light-primary min-w-[100px] shrink-0">
-                      {slot.time}
-                    </span>
-                    <div className="flex flex-col gap-xs">
-                      <span className="font-title text-title-md font-semibold text-light-on-surface">
-                        {slot.title}
-                      </span>
-                      <span className="font-body text-body-md text-light-on-surface-variant">
-                        {slot.description}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
+          {event.status === 'cancelled' && (
+            <div className="p-md bg-light-error-container text-light-on-error-container font-body text-body-md flex items-center gap-sm">
+              <span className="material-symbols-outlined">cancel</span>
+              <span>
+                <strong>Event Cancelled:</strong> {event.cancellation_reason || 'Cancelled by organizing club.'}
+              </span>
             </div>
           )}
 
-          {/* Eligibility Panel */}
-          <div className="bg-light-surface-container-lowest border border-light-outline-variant rounded-md p-lg flex flex-col gap-sm shadow-sm">
-            <div className="flex items-center justify-between">
-              <h2 className="font-headline text-headline-sm font-semibold text-light-on-surface m-0">
-                Participation Eligibility
-              </h2>
-              <span className="inline-flex items-center gap-xs px-sm py-0.5 rounded-full bg-success-container text-success font-label text-label-sm font-semibold">
-                <span className="material-symbols-outlined text-[16px]">verified</span>
-                Verified Roster
-              </span>
-            </div>
-            <p className="font-body text-body-md text-light-on-surface-variant m-0">
-              {event.eligibility}. Your verified academic student status meets the criteria for entry.
-            </p>
-          </div>
-        </div>
-
-        {/* Right Column (4 cols): Sticky Registration Card */}
-        <div className="lg:col-span-4 sticky top-24 flex flex-col gap-md">
-          <div className="bg-light-surface-container-lowest border border-light-outline-variant rounded-md p-lg flex flex-col gap-lg shadow-sm">
-            <div className="flex items-baseline justify-between">
-              <span className="font-label text-label-md text-light-on-surface-variant">Registration Fee</span>
-              <span className="font-display text-headline-md font-bold text-light-primary">
-                {event.fee === 0 ? 'Free' : `LKR ${event.fee}`}
-              </span>
-            </div>
-
-            {/* Capacity Progress Bar */}
-            <div className="flex flex-col gap-xs">
-              <div className="flex justify-between text-label-sm font-mono text-light-on-surface-variant">
-                <span>Capacity</span>
-                <span>{event.registered} / {event.capacity} seats</span>
-              </div>
-              <div className="w-full h-2 rounded-full bg-light-surface-container-high overflow-hidden">
-                <div
-                  className="h-full bg-light-secondary rounded-full transition-all duration-300"
-                  style={{ width: `${capacityPercent}%` }}
-                />
-              </div>
-              <span className="text-label-sm text-light-on-surface-variant">
-                {remaining > 0 ? `${remaining} remaining spots available` : 'At maximum capacity'}
-              </span>
-            </div>
-
-            {/* Action CTA */}
-            {registration ? (
-              <div className="flex flex-col gap-sm">
-                <div className="p-sm rounded bg-light-surface-container-low border border-light-outline-variant flex items-center justify-between">
-                  <span className="font-label text-label-sm text-light-on-surface-variant">Your Status</span>
-                  <StatusChip label={registration.status} status={registration.status} />
-                </div>
+          {/* Action / Tabs Bar */}
+          <div className="px-lg py-md border-b border-light-outline-variant flex flex-col md:flex-row md:items-center justify-between gap-md">
+            <div className="flex gap-md">
+              {[
+                { key: 'overview' as const, label: 'Details & Schedule' },
+                { key: 'posts' as const, label: `Club Posts (${posts.length})` },
+                { key: 'attendees' as const, label: `Confirmed Attendees (${attendees.length})` },
+              ].map((t) => (
                 <button
-                  onClick={() => navigate('/my-registrations')}
-                  className="w-full py-sm rounded bg-light-primary text-light-on-primary font-label text-label-lg font-semibold hover:bg-light-primary-container transition-all cursor-pointer border-0"
+                  key={t.key}
+                  type="button"
+                  onClick={() => setActiveTab(t.key)}
+                  className={`py-xs px-sm border-b-2 font-label text-label-md font-semibold bg-transparent border-t-0 border-l-0 border-r-0 cursor-pointer transition-colors ${
+                    activeTab === t.key
+                      ? 'border-light-primary text-light-primary'
+                      : 'border-transparent text-light-on-surface-variant hover:text-light-on-surface'
+                  }`}
                 >
-                  Manage Registration
+                  {t.label}
                 </button>
-              </div>
-            ) : event.status === 'cancelled' ? (
-              <button disabled className="w-full py-sm rounded bg-light-surface-container-high text-light-error font-label text-label-lg font-semibold cursor-not-allowed border-0">
-                Event Cancelled
-              </button>
-            ) : event.status === 'closed' || remaining <= 0 ? (
-              <button disabled className="w-full py-sm rounded bg-light-surface-container-high text-light-on-surface-variant font-label text-label-lg font-medium opacity-60 cursor-not-allowed border-0">
-                Registration Closed
-              </button>
-            ) : (
-              <button
-                onClick={() => navigate(`/events/${event.id}/register`)}
-                className="w-full py-sm rounded bg-light-primary text-light-on-primary font-label text-label-lg font-bold hover:bg-light-primary-container transition-all cursor-pointer border-0 shadow-md"
-              >
-                Register Now
-              </button>
-            )}
+              ))}
+            </div>
 
-            {/* Refund & Policy Note */}
-            <div className="bg-light-surface-container-low rounded p-md flex items-start gap-xs text-light-on-surface-variant">
-              <span className="material-symbols-outlined text-[18px] text-light-outline shrink-0 mt-0.5">policy</span>
-              <p className="font-body text-label-sm m-0 leading-relaxed">
-                Full refund guaranteed if cancelled at least 48 hours prior to start time. Instant digital QR pass generated upon confirmation.
-              </p>
+            <div className="flex items-center gap-md">
+              {userRegistration ? (
+                <div className="flex items-center gap-sm">
+                  <StatusChip
+                    label={userRegistration.status === 'checked_in' ? 'Checked In' : userRegistration.status.replace('_', ' ')}
+                    status={userRegistration.status === 'checked_in' ? 'confirmed' : userRegistration.status}
+                  />
+                  <Link
+                    to={userRegistration.status === 'payment_pending' ? '/payments' : '/my-qr'}
+                    className="px-md py-xs rounded bg-light-primary text-light-on-primary font-label text-label-md font-semibold no-underline"
+                  >
+                    {userRegistration.status === 'payment_pending' ? 'Complete Payment' : 'View QR Ticket'}
+                  </Link>
+                </div>
+              ) : canRegister ? (
+                <Link
+                  to={`/events/${event.id}/register`}
+                  className="px-lg py-sm rounded bg-light-primary text-light-on-primary font-label text-label-lg font-semibold no-underline hover:bg-light-primary-container"
+                >
+                  Register Now · {event.fee > 0 ? `LKR ${event.fee}` : 'Free'}
+                </Link>
+              ) : (
+                <span className="px-md py-xs rounded bg-light-surface-container text-light-on-surface-variant font-label text-label-md font-semibold">
+                  {event.status === 'cancelled'
+                    ? 'Event Cancelled'
+                    : event.status === 'closed'
+                    ? 'Registrations Closed'
+                    : 'Capacity Reached'}
+                </span>
+              )}
             </div>
           </div>
-        </div>
-      </div>
+
+          {/* Tab Body */}
+          <div className="p-lg md:p-xl grid grid-cols-1 lg:grid-cols-12 gap-xl">
+            <div className="lg:col-span-8 flex flex-col gap-lg">
+              {activeTab === 'overview' && (
+                <>
+                  <section>
+                    <h2 className="font-headline text-headline-sm text-light-on-surface font-semibold m-0 mb-xs">
+                      About This Event
+                    </h2>
+                    <p className="font-body text-body-md text-light-on-surface-variant m-0 leading-relaxed">
+                      {event.description}
+                    </p>
+                  </section>
+
+                  {event.manual_approval && (
+                    <div className="p-md rounded bg-info-container/40 border border-info-container text-on-info-container text-body-md flex items-start gap-sm">
+                      <span className="material-symbols-outlined shrink-0 mt-0.5">verified_user</span>
+                      <span>
+                        <strong>Manual Screening Notice:</strong> Submitting a registration form places your entry in <em>Pending Approval</em> until reviewed by the organizing club officer.
+                      </span>
+                    </div>
+                  )}
+
+                  {event.schedule && event.schedule.length > 0 && (
+                    <section>
+                      <h2 className="font-headline text-headline-sm text-light-on-surface font-semibold m-0 mb-md">
+                        Event Schedule
+                      </h2>
+                      <div className="flex flex-col gap-sm">
+                        {event.schedule.map((item, idx) => (
+                          <div
+                            key={idx}
+                            className="p-md rounded bg-light-surface-container-low/50 border border-light-outline-variant flex flex-col sm:flex-row sm:items-center gap-md"
+                          >
+                            <span className="font-mono text-mono-md text-light-primary font-semibold shrink-0 w-24">
+                              {item.time}
+                            </span>
+                            <div>
+                              <h3 className="font-title text-title-md text-light-on-surface font-semibold m-0">
+                                {item.title}
+                              </h3>
+                              <p className="font-body text-body-sm text-light-on-surface-variant m-0">
+                                {item.description}
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </section>
+                  )}
+                </>
+              )}
+
+              {activeTab === 'posts' && (
+                <section className="flex flex-col gap-md">
+                  <h2 className="font-headline text-headline-sm text-light-on-surface font-semibold m-0">
+                    Organizing Club Announcements
+                  </h2>
+                  {posts.length === 0 ? (
+                    <p className="text-light-on-surface-variant font-body text-body-md">
+                      No announcements published by {event.club_name} yet.
+                    </p>
+                  ) : (
+                    posts.map((post) => (
+                      <article
+                        key={post.id}
+                        className="p-md rounded bg-light-surface-container-low/40 border border-light-outline-variant flex flex-col gap-xs"
+                      >
+                        <div className="flex items-center justify-between">
+                          <h3 className="font-title text-title-md font-semibold m-0">{post.title}</h3>
+                          <span className="font-label text-label-sm text-light-on-surface-variant">
+                            {post.created_at}
+                          </span>
+                        </div>
+                        <p className="font-body text-body-md text-light-on-surface-variant m-0">
+                          {post.content}
+                        </p>
+                      </article>
+                    ))
+                  )}
+                </section>
+              )}
+
+              {activeTab === 'attendees' && (
+                <section className="flex flex-col gap-md">
+                  <h2 className="font-headline text-headline-sm text-light-on-surface font-semibold m-0">
+                    Confirmed Participant Roster
+                  </h2>
+                  {attendees.length === 0 ? (
+                    <p className="text-light-on-surface-variant font-body text-body-md">
+                      No confirmed attendees listed publicly yet.
+                    </p>
+                  ) : (
+                    <ul className="divide-y divide-light-outline-variant border border-light-outline-variant rounded">
+                      {attendees.map((att) => (
+                        <li key={att.id} className="p-md flex items-center justify-between">
+                          <div>
+                            <div className="font-title text-title-sm font-semibold">{att.user_name || 'Student Member'}</div>
+                            <div className="font-label text-label-sm text-light-on-surface-variant">{att.activity || 'Participant'}</div>
+                          </div>
+                          <span className="font-mono text-mono-sm text-light-on-surface-variant">Confirmed</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </section>
+              )}
+            </div>
+
+            {/* Event Meta Sidebar */}
+            <aside className="lg:col-span-4 bg-light-surface-container-low/40 border border-light-outline-variant rounded-md p-lg flex flex-col gap-md h-fit">
+              <h2 className="font-title text-title-md text-light-on-surface font-semibold m-0">
+                Key Information
+              </h2>
+              <dl className="flex flex-col gap-sm text-body-md m-0">
+                <div className="flex justify-between">
+                  <dt className="text-light-on-surface-variant">Date</dt>
+                  <dd className="font-semibold m-0">{event.start_date}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-light-on-surface-variant">Time</dt>
+                  <dd className="font-semibold m-0">{event.time}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-light-on-surface-variant">Venue</dt>
+                  <dd className="font-semibold m-0 text-right">{event.venue}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-light-on-surface-variant">Eligibility</dt>
+                  <dd className="font-semibold m-0 text-right">{event.eligibility}</dd>
+                </div>
+                <div className="flex justify-between">
+                  <dt className="text-light-on-surface-variant">Seats Remaining</dt>
+                  <dd className="font-semibold m-0 tabular-nums">{seatsLeft} / {event.capacity}</dd>
+                </div>
+                <div className="flex justify-between pt-sm border-t border-light-outline-variant">
+                  <dt className="text-light-on-surface-variant">Fee</dt>
+                  <dd className="font-mono font-bold text-light-primary m-0">
+                    {event.fee > 0 ? `LKR ${event.fee.toLocaleString()}` : 'Free'}
+                  </dd>
+                </div>
+              </dl>
+              {event.refund_policy && (
+                <div className="text-label-sm text-light-on-surface-variant pt-sm border-t border-light-outline-variant">
+                  <strong>Refund Policy:</strong> {event.refund_policy}
+                </div>
+              )}
+            </aside>
+          </div>
+        </section>
+      </main>
     </AppLayout>
   );
 };

@@ -1,124 +1,129 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AppLayout } from '../components/AppLayout';
-import { StatusChip } from '../components/StatusChip';
+import { useAuth } from '../context/AuthContext';
+import { dataService } from '../services/dataService';
+import { RefundRequestItem } from '../types';
 
 export const RefundStatus: React.FC = () => {
-  const steps = [
-    {
-      title: 'Refund Requested',
-      date: 'Nov 15, 2026 · 10:14 AM',
-      description: 'Cancellation confirmed within the allowable 48-hour pre-event window.',
-      done: true,
-    },
-    {
-      title: 'Payment Gateway Notified',
-      date: 'Nov 16, 2026 · 02:30 PM',
-      description: 'Batch authorization transmission approved by University Finance Office.',
-      done: true,
-    },
-    {
-      title: 'Refund Credited to Student Account',
-      date: 'Nov 18, 2026 · 09:45 AM',
-      description: 'LKR 500.00 returned to originating Visa debit card. Bank reference: #TX-990182.',
-      done: true,
-    },
-  ];
+  const { user } = useAuth();
+  const [refunds, setRefunds] = useState<RefundRequestItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    dataService.getRefundRequests(user?.id).then((list) => {
+      setRefunds(list);
+      setLoading(false);
+    });
+  }, [user?.id]);
+
+  const progressStage = (status: RefundRequestItem['status']) => {
+    if (status === 'Requested') return 1;
+    if (status === 'Under Review') return 2;
+    if (status === 'Approved' || status === 'Processing') return 3;
+    if (status === 'Completed') return 4;
+    return 0;
+  };
 
   return (
     <AppLayout>
-      {/* Top Breadcrumb */}
-      <div className="flex items-center justify-between">
-        <Link
-          to="/payment"
-          className="inline-flex items-center gap-xs font-label text-label-md text-light-primary hover:underline no-underline"
-        >
-          <span className="material-symbols-outlined text-[18px]">arrow_back</span>
-          <span>Back to payments</span>
-        </Link>
-        <div className="flex items-center gap-sm">
-          <span className="font-mono text-mono-md text-light-on-surface-variant px-sm py-0.5 rounded bg-light-surface-container-high">
-            RFD-2026-1182
-          </span>
-          <StatusChip label="Completed" status="confirmed" />
-        </div>
-      </div>
+      <main className="p-lg md:p-xl max-w-[1100px] w-full mx-auto flex flex-col gap-xl">
+        <header className="flex flex-col md:flex-row md:items-center justify-between gap-md">
+          <div className="flex flex-col gap-xs">
+            <h1 className="font-headline text-headline-lg text-light-on-surface font-semibold m-0">
+              Refund Status &amp; Claims (S12)
+            </h1>
+            <p className="font-body text-body-md text-light-on-surface-variant m-0">
+              Real-time status tracking for cancelled ticket reimbursements and manual refund requests.
+            </p>
+          </div>
+          <Link
+            to="/payments"
+            className="px-md py-sm rounded bg-light-surface-container-lowest border border-light-outline-variant text-light-on-surface font-label text-label-md font-semibold no-underline w-fit"
+          >
+            Back to Receipts
+          </Link>
+        </header>
 
-      {/* 12-Column Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-xl items-start">
-        {/* Left Column (7 cols): Timeline */}
-        <div className="lg:col-span-7 flex flex-col gap-md">
-          <div className="bg-light-surface-container-lowest border border-light-outline-variant rounded-md p-lg flex flex-col gap-lg shadow-sm">
-            <h2 className="font-headline text-headline-sm font-bold text-light-on-surface m-0">
-              Processing Timeline
-            </h2>
+        {loading ? (
+          <div className="p-xl text-center text-light-on-surface-variant">Loading refund claims...</div>
+        ) : refunds.length === 0 ? (
+          <section className="p-xl bg-light-surface-container-lowest border border-light-outline-variant rounded-md text-center flex flex-col gap-sm">
+            <span className="material-symbols-outlined text-[40px] text-light-on-surface-variant">receipt_long</span>
+            <h2 className="font-headline text-headline-sm m-0">No Refund Claims Found</h2>
+            <p className="font-body text-body-md text-light-on-surface-variant m-0">
+              Eligible claims from cancelled paid events or submitted requests on Receipts will appear here.
+            </p>
+          </section>
+        ) : (
+          <div className="flex flex-col gap-lg">
+            {refunds.map((item) => {
+              const stage = progressStage(item.status);
+              return (
+                <article
+                  key={item.id}
+                  className="bg-light-surface-container-lowest border border-light-outline-variant rounded-md p-lg flex flex-col gap-md shadow-sm"
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-sm pb-sm border-b border-light-outline-variant">
+                    <div>
+                      <span className="font-mono text-mono-md text-light-primary font-bold">
+                        {item.refund_code} · Receipt {item.receipt_no}
+                      </span>
+                      <h2 className="font-title text-title-lg text-light-on-surface font-semibold m-0">
+                        {item.event_title}
+                      </h2>
+                      <span className="font-label text-label-sm text-light-on-surface-variant">
+                        Requested {item.requested_at} · {item.club_name}
+                      </span>
+                    </div>
 
-            <div className="relative pl-6 flex flex-col gap-lg border-l-2 border-light-secondary ml-3 my-2">
-              {steps.map((step, idx) => (
-                <div key={idx} className="relative flex flex-col gap-xs">
-                  {/* Pin Dot */}
-                  <span className="absolute -left-[31px] top-0.5 w-4 h-4 rounded-full bg-light-secondary flex items-center justify-center ring-4 ring-light-surface-container-lowest">
-                    <span className="material-symbols-outlined text-[12px] text-white">check</span>
-                  </span>
+                    <div className="text-left sm:text-right">
+                      <div className="font-mono text-headline-sm font-bold text-light-on-surface">
+                        LKR {item.amount.toLocaleString()}
+                      </div>
+                      <span
+                        className={`inline-flex px-sm py-0.5 rounded-full font-label text-label-sm ${
+                          item.status === 'Completed'
+                            ? 'bg-success-container text-on-success-container'
+                            : item.status === 'Rejected'
+                            ? 'bg-light-error-container text-light-on-error-container'
+                            : 'bg-info-container text-on-info-container'
+                        }`}
+                      >
+                        {item.status}
+                      </span>
+                    </div>
+                  </div>
 
-                  <span className="font-headline text-title-md font-bold text-light-on-surface">
-                    {step.title}
-                  </span>
-                  <span className="font-mono text-label-sm text-light-secondary font-medium">
-                    {step.date}
-                  </span>
                   <p className="font-body text-body-md text-light-on-surface-variant m-0">
-                    {step.description}
+                    <strong>Reason:</strong> {item.reason}
                   </p>
-                </div>
-              ))}
-            </div>
+                  {item.officer_note && (
+                    <p className="font-body text-body-sm text-light-on-surface bg-light-surface-container-low p-sm rounded m-0">
+                      <strong>Officer Note:</strong> {item.officer_note}
+                    </p>
+                  )}
+
+                  {item.status !== 'Rejected' && (
+                    <div className="grid grid-cols-4 gap-xs pt-xs text-center">
+                      {['Requested', 'Under Review', 'Approved', 'Settled'].map((label, idx) => (
+                        <div key={label} className="flex flex-col gap-1">
+                          <div
+                            className={`h-2 rounded-full ${
+                              idx + 1 <= stage ? 'bg-light-primary' : 'bg-light-surface-container'
+                            }`}
+                          />
+                          <span className="font-label text-label-sm text-light-on-surface-variant">{label}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </article>
+              );
+            })}
           </div>
-        </div>
-
-        {/* Right Column (5 cols): Summary */}
-        <div className="lg:col-span-5 sticky top-24 flex flex-col gap-md">
-          <div className="bg-light-surface-container-lowest border border-light-outline-variant rounded-md p-lg flex flex-col gap-md shadow-sm">
-            <span className="font-headline text-title-md font-bold text-light-on-surface">
-              Refund Summary
-            </span>
-
-            <div className="h-24 bg-gradient-to-r from-slate-900 to-indigo-950 rounded p-md flex flex-col justify-end text-white">
-              <span className="text-xs font-mono text-teal-300">Robotics Bootcamp Kit</span>
-              <span className="font-headline text-title-md font-bold text-white">IEEE Robotics Chapter</span>
-            </div>
-
-            <div className="flex flex-col gap-xs text-body-md text-light-on-surface-variant border-b border-light-outline-variant pb-md">
-              <div className="flex justify-between">
-                <span>Original Invoice:</span>
-                <span className="font-mono font-semibold text-light-on-surface">RCT-2026-3109</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Payment Channel:</span>
-                <span className="font-semibold text-light-on-surface">Online Visa Debit</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Resolution Time:</span>
-                <span className="font-semibold text-light-on-surface">3 Business Days</span>
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-xs">
-              <span className="text-label-sm text-light-on-surface-variant font-label">Total Amount Credited</span>
-              <span className="font-display text-headline-md font-bold text-success font-mono">
-                LKR 1,500.00
-              </span>
-            </div>
-
-            <div className="bg-light-surface-container-low rounded p-md text-label-sm text-light-on-surface-variant flex items-start gap-xs">
-              <span className="material-symbols-outlined text-[18px] text-light-outline shrink-0 mt-0.5">help</span>
-              <span>
-                Need assistance with your settlement? Reach out to the University Bursar Office quoting reference <strong>RFD-2026-1182</strong>.
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
+        )}
+      </main>
     </AppLayout>
   );
 };

@@ -1,196 +1,252 @@
 import React, { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { OrganizerLayout } from '../../components/OrganizerLayout';
+import { ClubMemberItem, ClubItem, ClubPostItem } from '../../types';
 import { dataService } from '../../services/dataService';
-import { ClubMemberItem } from '../../types';
 
 export const ClubMembers: React.FC = () => {
   const [members, setMembers] = useState<ClubMemberItem[]>([]);
-  const [clubSummary, setClubSummary] = useState(
-    'Official student sports body organizing inter-faculty tournaments, indoor games, and athletics training.'
-  );
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [clubs, setClubs] = useState<ClubItem[]>([]);
+  const [posts, setPosts] = useState<ClubPostItem[]>([]);
+  const [selectedClubId, setSelectedClubId] = useState('club-sports');
+  const [clubDescription, setClubDescription] = useState('');
+  const [postTitle, setPostTitle] = useState('');
+  const [postContent, setPostContent] = useState('');
+  const [postAudience, setPostAudience] = useState<'All Students' | 'Members Only'>('All Students');
+  const [feedback, setFeedback] = useState('');
+  const [loading, setLoading] = useState(true);
 
-  const fetchMembers = async () => {
+  const loadData = async () => {
+    setLoading(true);
     try {
-      const data = await dataService.getClubMembers('club-sports');
-      setMembers(data);
-    } catch (err) {
-      console.warn('Error fetching club members:', err);
+      const [mList, cList, pList] = await Promise.all([
+        dataService.getClubMembers(),
+        dataService.getClubs(),
+        dataService.getClubPosts(false),
+      ]);
+      setMembers(mList);
+      setClubs(cList);
+      setPosts(pList);
+      const activeClub = cList.find((c) => c.id === selectedClubId) || cList[0];
+      if (activeClub) {
+        setSelectedClubId(activeClub.id);
+        setClubDescription(activeClub.description);
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchMembers();
+    loadData();
   }, []);
 
-  const handleApproveMember = async (id: string, name: string) => {
+  const handleClubChange = (clubId: string) => {
+    setSelectedClubId(clubId);
+    const match = clubs.find((c) => c.id === clubId);
+    if (match) setClubDescription(match.description);
+  };
+
+  const handleApproveMember = async (id: string) => {
     await dataService.approveClubMember(id);
-    setToastMessage(`Approved membership for ${name}. Membership fee notice released.`);
-    setTimeout(() => setToastMessage(null), 4000);
-    fetchMembers();
+    setFeedback('Member application approved and synced.');
+    await loadData();
   };
 
-  const handleDeclineMember = async (id: string, name: string) => {
+  const handleDeclineMember = async (id: string) => {
     await dataService.declineClubMember(id);
-    setToastMessage(`Declined join request for ${name}.`);
-    setTimeout(() => setToastMessage(null), 4000);
-    fetchMembers();
+    setFeedback('Member application declined.');
+    await loadData();
   };
 
-  const handleSaveClubContent = () => {
-    setToastMessage('Public club summary updated successfully.');
-    setTimeout(() => setToastMessage(null), 3000);
+  const handleSaveClubProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await dataService.updateClubContent(selectedClubId, clubDescription);
+    setFeedback('Club profile description updated.');
+    await loadData();
   };
 
-  const pendingRequests = members.filter((m) => m.status === 'Pending');
-  const activeMembers = members.filter((m) => m.status === 'Active');
+  const handlePublishPost = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!postTitle.trim() || !postContent.trim()) return;
+    const club = clubs.find((c) => c.id === selectedClubId);
+    await dataService.createClubPost({
+      club_id: selectedClubId,
+      club_name: club?.name || 'University Sports Council',
+      title: postTitle.trim(),
+      content: postContent.trim(),
+      audience: postAudience,
+    });
+    setPostTitle('');
+    setPostContent('');
+    setFeedback('Club post published to student portal.');
+    await loadData();
+  };
 
   return (
     <OrganizerLayout>
-      <main className="flex-1 p-xl max-w-[1280px] w-full mx-auto flex flex-col gap-xl">
-        {/* Toast Notification */}
-        {toastMessage && (
-          <div className="bg-success-container text-on-success-container px-lg py-md rounded-md flex items-center justify-between gap-md shadow-sm transition-all">
-            <div className="flex items-center gap-sm">
-              <span className="material-symbols-outlined text-[20px]">check_circle</span>
-              <span className="font-label text-label-md">{toastMessage}</span>
-            </div>
-            <button
-              onClick={() => setToastMessage(null)}
-              className="text-on-success-container hover:opacity-75 cursor-pointer bg-transparent border-0 p-0"
-            >
-              <span className="material-symbols-outlined text-[18px]">close</span>
-            </button>
+      <main className="p-lg md:p-xl max-w-[1400px] w-full mx-auto flex flex-col gap-xl">
+        <header className="flex flex-col md:flex-row md:items-center justify-between gap-md">
+          <div className="flex flex-col gap-xs">
+            <h1 className="font-headline text-headline-lg text-light-on-surface font-semibold">
+              Club Membership &amp; Posts (O12 · O13)
+            </h1>
+            <p className="font-body text-body-md text-light-on-surface-variant">
+              Approve membership applications, manage club profile descriptions, and publish announcements.
+            </p>
+          </div>
+
+          <select
+            value={selectedClubId}
+            onChange={(e) => handleClubChange(e.target.value)}
+            className="px-md py-sm rounded border border-light-outline bg-light-surface-container-lowest font-label text-label-md"
+          >
+            {clubs.map((c) => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+        </header>
+
+        {feedback && (
+          <div className="p-md rounded bg-success-container/30 border border-success text-on-success-container font-body text-body-md">
+            {feedback}
           </div>
         )}
 
-        {/* Header & Public Club Link */}
-        <div className="flex flex-wrap items-end justify-between gap-md">
-          <div className="flex flex-col gap-xs">
-            <h1 className="font-headline text-headline-lg text-light-on-surface">
-              Sports Club &amp; Members
-            </h1>
-            <p className="font-body text-body-md text-light-on-surface-variant tabular-nums">
-              148 active members · {pendingRequests.length} pending join requests · Annual membership fee: LKR 1,000
-            </p>
-          </div>
-          <Link
-            to="/clubs/club-sports"
-            className="px-md py-sm rounded bg-light-surface-container-lowest text-light-primary border border-light-outline-variant hover:bg-light-surface-container-low transition-colors duration-state-change font-label text-label-lg whitespace-nowrap no-underline"
-          >
-            View Public Club Profile
-          </Link>
-        </div>
-
-        {/* 2-Column Operational Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-lg items-start">
-          {/* Pending Join Requests (7 cols) */}
-          <section aria-label="Pending membership requests" className="lg:col-span-7 flex flex-col gap-md">
-            <h2 className="font-headline text-headline-sm text-light-on-surface">
-              Pending Join Requests ({pendingRequests.length})
-            </h2>
+          {/* Member Directory & Applications (7 cols) */}
+          <section className="lg:col-span-7 bg-light-surface-container-lowest border border-light-outline-variant rounded-md shadow-sm overflow-hidden">
+            <div className="px-lg py-md border-b border-light-outline-variant bg-light-surface-container-low/50">
+              <h2 className="font-headline text-headline-sm text-light-on-surface font-semibold m-0">
+                Member Roster &amp; Pending Applications ({members.length})
+              </h2>
+            </div>
 
-            <div className="bg-light-surface-container-lowest border border-light-outline-variant rounded-md divide-y divide-light-outline-variant shadow-sm">
-              {pendingRequests.map((req) => (
-                <div key={req.id} className="p-lg flex flex-wrap items-center justify-between gap-md hover:bg-light-surface-container-low/40 transition-colors">
-                  <div className="flex flex-col gap-xs">
-                    <span className="font-title text-title-md text-light-on-surface font-semibold">
-                      {req.name}
-                    </span>
-                    <span className="font-body text-body-md text-light-on-surface-variant tabular-nums">
-                      {req.student_id} · Requested {req.requested_date || 'Recently'}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-sm">
-                    <button
-                      type="button"
-                      onClick={() => handleApproveMember(req.id, req.name)}
-                      className="px-md py-xs rounded bg-light-primary text-light-on-primary hover:bg-light-primary-container transition-colors duration-state-change font-label text-label-md cursor-pointer"
-                    >
-                      Approve
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleDeclineMember(req.id, req.name)}
-                      className="px-md py-xs rounded bg-light-surface-container-lowest text-light-error border border-light-outline-variant hover:bg-light-error-container transition-colors duration-state-change font-label text-label-md cursor-pointer"
-                    >
-                      Decline
-                    </button>
-                  </div>
-                </div>
-              ))}
-
-              {pendingRequests.length === 0 && (
-                <div className="p-xl text-center flex flex-col items-center justify-center gap-sm">
-                  <span className="material-symbols-outlined text-[32px] text-success">
-                    check_circle
-                  </span>
-                  <p className="font-body text-body-md text-light-on-surface-variant">
-                    All membership join requests have been processed!
-                  </p>
-                </div>
-              )}
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="border-b border-light-outline-variant bg-light-surface-container-low/30 text-light-on-surface-variant font-label text-label-sm">
+                    <th className="px-md py-sm">Student</th>
+                    <th className="px-md py-sm">Faculty &amp; Role</th>
+                    <th className="px-md py-sm">Status</th>
+                    <th className="px-md py-sm text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-light-outline-variant">
+                  {loading ? (
+                    <tr><td colSpan={4} className="p-lg text-center">Loading members...</td></tr>
+                  ) : (
+                    members.map((m) => (
+                      <tr key={m.id}>
+                        <td className="px-md py-sm">
+                          <div className="font-title text-title-md text-light-on-surface font-medium">{m.name}</div>
+                          <div className="font-mono text-mono-sm text-light-on-surface-variant">{m.student_id}</div>
+                        </td>
+                        <td className="px-md py-sm font-body text-body-sm text-light-on-surface-variant">
+                          {m.faculty} · {m.role}
+                        </td>
+                        <td className="px-md py-sm">
+                          <span
+                            className={`px-sm py-0.5 rounded-full font-label text-label-sm ${
+                              m.status === 'Active'
+                                ? 'bg-success-container text-on-success-container'
+                                : m.status === 'Pending'
+                                ? 'bg-warning-container text-on-warning-container'
+                                : 'bg-light-error-container text-light-on-error-container'
+                            }`}
+                          >
+                            {m.status}
+                          </span>
+                        </td>
+                        <td className="px-md py-sm text-right whitespace-nowrap">
+                          {m.status === 'Pending' && (
+                            <div className="inline-flex gap-xs">
+                              <button
+                                type="button"
+                                onClick={() => handleApproveMember(m.id)}
+                                className="px-sm py-xs rounded bg-light-primary text-light-on-primary font-label text-label-sm border-0 cursor-pointer"
+                              >
+                                Approve
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeclineMember(m.id)}
+                                className="px-sm py-xs rounded bg-light-error-container text-light-on-error-container font-label text-label-sm border-0 cursor-pointer"
+                              >
+                                Decline
+                              </button>
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
             </div>
           </section>
 
-          {/* Club Committee & Profile Content (5 cols) */}
-          <section aria-label="Club committee and profile settings" className="lg:col-span-5 flex flex-col gap-md">
-            <h2 className="font-headline text-headline-sm text-light-on-surface">
-              Committee &amp; Club Content
-            </h2>
+          {/* Club Profile Editor & Publish Post (5 cols) */}
+          <div className="lg:col-span-5 flex flex-col gap-lg">
+            <form
+              onSubmit={handleSaveClubProfile}
+              className="bg-light-surface-container-lowest border border-light-outline-variant rounded-md p-lg flex flex-col gap-md shadow-sm"
+            >
+              <h2 className="font-headline text-headline-sm text-light-on-surface font-semibold m-0">
+                Update Club Profile Content
+              </h2>
+              <textarea
+                rows={3}
+                value={clubDescription}
+                onChange={(e) => setClubDescription(e.target.value)}
+                className="px-md py-sm rounded border border-light-outline bg-light-surface-container-lowest font-body text-body-md resize-none"
+              />
+              <button
+                type="submit"
+                className="self-end px-md py-xs rounded bg-light-primary text-light-on-primary font-label text-label-md font-semibold border-0 cursor-pointer"
+              >
+                Save Club Profile
+              </button>
+            </form>
 
-            <div className="bg-light-surface-container-lowest border border-light-outline-variant rounded-md p-lg flex flex-col gap-md shadow-sm">
-              <div className="flex flex-col gap-xs">
-                <span className="font-label text-label-md text-light-on-surface-variant">
-                  Five Club Decision-Makers
-                </span>
-                <ul className="flex flex-col gap-xs pt-xs list-none p-0 m-0">
-                  <li className="flex items-center justify-between text-body-md py-xs border-b border-light-outline-variant/50">
-                    <span className="text-light-on-surface font-medium">President · Ishara De Silva</span>
-                    <span className="font-label text-label-sm text-on-success-container bg-success-container px-sm py-xs rounded-full">
-                      Active
-                    </span>
-                  </li>
-                  <li className="flex items-center justify-between text-body-md py-xs border-b border-light-outline-variant/50">
-                    <span className="text-light-on-surface font-medium">Secretary · Nethmi Perera</span>
-                    <span className="font-label text-label-sm text-on-info-container bg-info-container px-sm py-xs rounded-full">
-                      Authorized Organizer
-                    </span>
-                  </li>
-                  <li className="flex items-center justify-between text-body-md py-xs">
-                    <span className="text-light-on-surface font-medium">Treasurer · Chamod Perera</span>
-                    <span className="font-label text-label-sm text-on-success-container bg-success-container px-sm py-xs rounded-full">
-                      Active
-                    </span>
-                  </li>
-                </ul>
-              </div>
-
-              <div className="pt-md border-t border-light-outline-variant flex flex-col gap-sm">
-                <label
-                  htmlFor="club-tagline"
-                  className="font-label text-label-md text-light-on-surface font-medium"
-                >
-                  Public Club Summary
-                </label>
-                <textarea
-                  id="club-tagline"
-                  rows={3}
-                  value={clubSummary}
-                  onChange={(e) => setClubSummary(e.target.value)}
-                  className="w-full px-md py-sm rounded bg-light-surface-container-lowest border border-light-outline text-light-on-surface font-body text-body-md focus:border-light-primary focus:ring-2 focus:ring-light-primary/20 outline-none resize-none"
-                />
-                <button
-                  type="button"
-                  onClick={handleSaveClubContent}
-                  className="self-end px-md py-xs rounded bg-light-primary text-light-on-primary hover:bg-light-primary-container transition-colors duration-state-change font-label text-label-md cursor-pointer"
-                >
-                  Save Club Content
-                </button>
-              </div>
-            </div>
-          </section>
+            <form
+              onSubmit={handlePublishPost}
+              className="bg-light-surface-container-lowest border border-light-outline-variant rounded-md p-lg flex flex-col gap-md shadow-sm"
+            >
+              <h2 className="font-headline text-headline-sm text-light-on-surface font-semibold m-0">
+                Publish Announcement / Post (O13)
+              </h2>
+              <input
+                type="text"
+                required
+                value={postTitle}
+                onChange={(e) => setPostTitle(e.target.value)}
+                placeholder="Announcement headline..."
+                className="px-md py-sm rounded border border-light-outline bg-light-surface-container-lowest font-body text-body-md"
+              />
+              <select
+                value={postAudience}
+                onChange={(e) => setPostAudience(e.target.value as 'All Students' | 'Members Only')}
+                className="px-md py-sm rounded border border-light-outline bg-light-surface-container-lowest font-body text-body-md"
+              >
+                <option value="All Students">Visible to All Students</option>
+                <option value="Members Only">Club Members Only</option>
+              </select>
+              <textarea
+                rows={3}
+                required
+                value={postContent}
+                onChange={(e) => setPostContent(e.target.value)}
+                placeholder="Write post details..."
+                className="px-md py-sm rounded border border-light-outline bg-light-surface-container-lowest font-body text-body-md resize-none"
+              />
+              <button
+                type="submit"
+                className="self-end px-md py-xs rounded bg-light-primary text-light-on-primary font-label text-label-md font-semibold border-0 cursor-pointer"
+              >
+                Publish Post ({posts.length} live)
+              </button>
+            </form>
+          </div>
         </div>
       </main>
     </OrganizerLayout>

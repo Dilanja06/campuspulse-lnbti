@@ -1,12 +1,13 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { supabase } from '../supabaseClient';
+import { supabase, isSupabaseConfigured } from '../supabaseClient';
 
-export type UserRole = 
-  | 'student' 
-  | 'organizer' 
-  | 'committee' 
-  | 'coordinator' 
-  | 'authority' 
+export type UserRole =
+  | 'student'
+  | 'organizer'
+  | 'committee'
+  | 'coordinator'
+  | 'authority'
+  | 'verification'
   | 'admin';
 
 export interface UserProfile {
@@ -14,70 +15,111 @@ export interface UserProfile {
   email: string;
   name: string;
   role: UserRole;
+  available_roles: UserRole[];
   student_id?: string;
   staff_id?: string;
   faculty?: string;
   department?: string;
   avatar_initials: string;
+  club_id?: string;
   club_name?: string;
+  email_verified?: boolean;
+  is_demo_session?: boolean;
+  registered_device_name?: string;
+  registered_device_date?: string;
+  pref_registration?: boolean;
+  pref_reminders?: boolean;
+  pref_announcements?: boolean;
 }
+
+export const isDemoModeEnabled = import.meta.env.VITE_DEMO_MODE === 'true';
 
 export const defaultAccounts: Record<string, UserProfile> = {
   'nethmi.p@university.edu': {
-    id: 'user-student-01',
+    id: '11111111-1111-4111-8111-000000000001',
     email: 'nethmi.p@university.edu',
     name: 'Nethmi Perera',
     role: 'student',
+    available_roles: ['student'],
     student_id: 'UG/2024/CS/0142',
-    faculty: 'Computing',
+    faculty: 'Faculty of Computing',
     avatar_initials: 'NP',
+    email_verified: true,
+    registered_device_name: 'Google Pixel 8 Pro',
+    registered_device_date: '12 Jan 2026',
+    pref_registration: true,
+    pref_reminders: true,
+    pref_announcements: true,
   },
   'organizer@university.edu': {
-    id: 'user-organizer-01',
+    id: '11111111-1111-4111-8111-000000000002',
     email: 'organizer@university.edu',
     name: 'Nethmi Perera',
     role: 'organizer',
+    available_roles: ['organizer', 'student'],
     student_id: 'UG/2024/CS/0142',
-    faculty: 'Computing',
-    club_name: 'Sports Club',
+    faculty: 'Faculty of Computing',
+    club_id: 'club-sports',
+    club_name: 'University Sports Council',
     avatar_initials: 'NP',
+    email_verified: true,
   },
   'chamod.p@university.edu': {
-    id: 'user-committee-01',
+    id: '11111111-1111-4111-8111-000000000003',
     email: 'chamod.p@university.edu',
     name: 'Chamod Perera',
     role: 'committee',
+    available_roles: ['committee', 'student'],
     student_id: 'UG/2023/MG/0088',
-    faculty: 'Management',
-    club_name: 'Sports Club',
+    faculty: 'Faculty of Management',
+    club_id: 'club-sports',
+    club_name: 'University Sports Council',
     avatar_initials: 'CP',
+    email_verified: true,
   },
   'kavinda.s@university.edu': {
-    id: 'user-coordinator-01',
+    id: '11111111-1111-4111-8111-000000000004',
     email: 'kavinda.s@university.edu',
     name: 'Dr. Kavinda Silva',
     role: 'coordinator',
+    available_roles: ['coordinator'],
     staff_id: 'STAFF/ENG/0042',
     department: 'Faculty of Engineering',
     avatar_initials: 'KS',
+    email_verified: true,
   },
   'maheshika.p@university.edu': {
-    id: 'user-authority-01',
+    id: '11111111-1111-4111-8111-000000000005',
     email: 'maheshika.p@university.edu',
     name: 'Prof. Maheshika Perera',
     role: 'authority',
+    available_roles: ['authority'],
     staff_id: 'AUTH/DSA/001',
     department: 'Dean of Student Affairs',
     avatar_initials: 'MP',
+    email_verified: true,
+  },
+  'rohan.v@university.edu': {
+    id: '11111111-1111-4111-8111-000000000006',
+    email: 'rohan.v@university.edu',
+    name: 'Rohan Jayawardena',
+    role: 'verification',
+    available_roles: ['verification'],
+    staff_id: 'STAFF/VER/0011',
+    department: 'External Verification Unit',
+    avatar_initials: 'RJ',
+    email_verified: true,
   },
   'amila.d@university.edu': {
-    id: 'user-admin-01',
+    id: '11111111-1111-4111-8111-000000000007',
     email: 'amila.d@university.edu',
     name: 'Amila Dissanayake',
     role: 'admin',
+    available_roles: ['admin'],
     staff_id: 'ADM/SYS/0089',
     department: 'Central Administration',
     avatar_initials: 'AD',
+    email_verified: true,
   },
 };
 
@@ -85,20 +127,21 @@ interface AuthContextType {
   user: UserProfile | null;
   role: UserRole;
   loading: boolean;
-  signIn: (email: string, password?: string) => Promise<{ success: boolean; role?: UserRole; error?: string }>;
+  signIn: (email: string, password: string) => Promise<{ success: boolean; role?: UserRole; error?: string }>;
+  signInDemoPreset: (email: string) => Promise<{ success: boolean; role?: UserRole; error?: string }>;
   signUp: (data: {
     email: string;
-    password?: string;
+    password: string;
     fullName: string;
-    role: UserRole;
-    studentId?: string;
-    staffId?: string;
-    faculty?: string;
-    department?: string;
-    clubName?: string;
-  }) => Promise<{ success: boolean; error?: string }>;
+    studentId: string;
+    faculty: string;
+  }) => Promise<{ success: boolean; needsVerification?: boolean; error?: string }>;
   signOut: () => Promise<void>;
-  switchRole: (newRole: UserRole) => void;
+  switchRole: (newRole: UserRole) => boolean;
+  resetPassword: (email: string) => Promise<{ success: boolean; error?: string }>;
+  resendVerification: (email: string) => Promise<{ success: boolean; error?: string }>;
+  refreshVerificationStatus: () => Promise<boolean>;
+  updateUserProfile: (updates: Partial<UserProfile>) => Promise<boolean>;
   getRoleHomeRoute: (r?: UserRole) => string;
 }
 
@@ -114,6 +157,8 @@ export const getRoleHomeRoute = (r?: UserRole): string => {
       return '/coordinator';
     case 'authority':
       return '/authority';
+    case 'verification':
+      return '/verification';
     case 'admin':
       return '/admin';
     case 'student':
@@ -122,14 +167,25 @@ export const getRoleHomeRoute = (r?: UserRole): string => {
   }
 };
 
+function computeAvailableRoles(baseRole: UserRole, presetRoles?: UserRole[]): UserRole[] {
+  if (presetRoles && presetRoles.length > 0) return presetRoles;
+  if (baseRole === 'organizer' || baseRole === 'committee') {
+    return [baseRole, 'student'];
+  }
+  return [baseRole];
+}
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<UserProfile | null>(() => {
-    // Restore cached user from localStorage if present
     const cached = localStorage.getItem('campuspulse_auth_user');
     if (cached) {
       try {
-        return JSON.parse(cached);
-      } catch (e) {
+        const parsed = JSON.parse(cached) as UserProfile;
+        if (!parsed.available_roles) {
+          parsed.available_roles = computeAvailableRoles(parsed.role);
+        }
+        return parsed;
+      } catch {
         return null;
       }
     }
@@ -137,7 +193,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   });
   const [loading, setLoading] = useState(false);
 
-  // Sync state to localStorage
   useEffect(() => {
     if (user) {
       localStorage.setItem('campuspulse_auth_user', JSON.stringify(user));
@@ -146,69 +201,98 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [user]);
 
-  // Listen to Supabase auth changes
+  const hydrateFromSessionUser = async (supaUser: any): Promise<UserProfile> => {
+    const email = (supaUser.email || '').toLowerCase();
+    const meta = supaUser.user_metadata || {};
+    const preset = defaultAccounts[email];
+
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .or(`id.eq.${supaUser.id},email.eq.${email}`)
+        .limit(1)
+        .maybeSingle();
+
+      if (profile) {
+        const resolvedRole = (profile.role as UserRole) || preset?.role || 'student';
+        const fullName = profile.full_name || meta.full_name || preset?.name || email.split('@')[0];
+        const initials =
+          profile.avatar_initials ||
+          fullName
+            .split(' ')
+            .map((n: string) => n[0])
+            .join('')
+            .toUpperCase()
+            .substring(0, 2);
+
+        return {
+          id: profile.id || supaUser.id,
+          email: profile.email || email,
+          name: fullName,
+          role: resolvedRole,
+          available_roles: computeAvailableRoles(resolvedRole, preset?.available_roles),
+          student_id: profile.student_id || meta.student_id || preset?.student_id,
+          staff_id: profile.staff_id || preset?.staff_id,
+          faculty: profile.faculty || meta.faculty || preset?.faculty,
+          department: profile.department || preset?.department,
+          avatar_initials: initials || 'ST',
+          club_id: profile.club_id || preset?.club_id,
+          club_name: profile.club_name || preset?.club_name,
+          email_verified: Boolean(supaUser.email_confirmed_at),
+          is_demo_session: false,
+          registered_device_name: profile.registered_device_name || 'Google Pixel 8 Pro',
+          registered_device_date: profile.registered_device_date || '12 Jan 2026',
+          pref_registration: profile.pref_registration ?? true,
+          pref_reminders: profile.pref_reminders ?? true,
+          pref_announcements: profile.pref_announcements ?? true,
+        };
+      }
+    } catch (err) {
+      console.warn('Profiles lookup warning:', err);
+    }
+
+    if (preset) {
+      return {
+        ...preset,
+        id: supaUser.id,
+        email_verified: Boolean(supaUser.email_confirmed_at),
+        is_demo_session: false,
+      };
+    }
+
+    const name = meta.full_name || email.split('@')[0];
+    const initials = name
+      .split(' ')
+      .map((n: string) => n[0])
+      .join('')
+      .toUpperCase()
+      .substring(0, 2);
+
+    return {
+      id: supaUser.id,
+      email,
+      name,
+      role: 'student',
+      available_roles: ['student'],
+      student_id: meta.student_id,
+      faculty: meta.faculty,
+      avatar_initials: initials || 'ST',
+      email_verified: Boolean(supaUser.email_confirmed_at),
+      is_demo_session: false,
+    };
+  };
+
   useEffect(() => {
     try {
-      const { data: authListener } = supabase.auth.onAuthStateChange(
-        async (event, session) => {
-          if (session?.user) {
-            const email = session.user.email || '';
-            // Try fetching profile from Supabase profiles table
-            try {
-              const { data: profile } = await supabase
-                .from('profiles')
-                .select('*')
-                .eq('id', session.user.id)
-                .single();
-
-              if (profile) {
-                setUser({
-                  id: profile.id,
-                  email: profile.email,
-                  name: profile.full_name || profile.name || email.split('@')[0],
-                  role: (profile.role as UserRole) || 'student',
-                  student_id: profile.student_id,
-                  staff_id: profile.staff_id,
-                  faculty: profile.faculty,
-                  department: profile.department,
-                  avatar_initials: profile.avatar_initials || (profile.full_name ? profile.full_name.substring(0, 2).toUpperCase() : 'CP'),
-                  club_name: profile.club_name,
-                });
-                return;
-              }
-            } catch (err) {
-              console.warn('Profiles query error, checking metadata/presets:', err);
-            }
-
-            // Fallback to user_metadata or default presets
-            const meta = session.user.user_metadata || {};
-            const matched = defaultAccounts[email];
-            if (matched) {
-              setUser(matched);
-            } else {
-              const name = meta.full_name || email.split('@')[0];
-              const initials = name
-                .split(' ')
-                .map((n: string) => n[0])
-                .join('')
-                .toUpperCase()
-                .substring(0, 2);
-
-              setUser({
-                id: session.user.id,
-                email,
-                name,
-                role: (meta.role as UserRole) || 'student',
-                student_id: meta.student_id,
-                staff_id: meta.staff_id,
-                faculty: meta.faculty,
-                department: meta.department,
-                avatar_initials: initials || 'ST',
-              });
-            }
-          }
+      const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+        if (session?.user) {
+          const hydrated = await hydrateFromSessionUser(session.user);
+          setUser(hydrated);
+        } else if (event === 'SIGNED_OUT') {
+          setUser(null);
         }
-      );
+      });
 
       return () => {
         authListener?.subscription?.unsubscribe();
@@ -220,73 +304,53 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signIn = async (
     email: string,
-    password?: string
+    password: string
   ): Promise<{ success: boolean; role?: UserRole; error?: string }> => {
     setLoading(true);
     try {
       const cleanEmail = email.trim().toLowerCase();
+      if (!cleanEmail || !password) {
+        return { success: false, error: 'Campus email and password are required.' };
+      }
 
-      // 1. Check if user is signing in via preset account
-      const preset = defaultAccounts[cleanEmail];
+      if (isSupabaseConfigured) {
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email: cleanEmail,
+          password,
+        });
 
-      // 2. Attempt real Supabase signInWithPassword if password provided
-      if (password) {
-        try {
-          const { data, error } = await supabase.auth.signInWithPassword({
-            email: cleanEmail,
-            password,
-          });
-
-          if (!error && data.user) {
-            // Fetch profile
-            const { data: profile } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('id', data.user.id)
-              .single();
-
-            const role = (profile?.role as UserRole) || (data.user.user_metadata?.role as UserRole) || preset?.role || 'student';
-            const name = profile?.full_name || data.user.user_metadata?.full_name || preset?.name || cleanEmail.split('@')[0];
-            const initials = name.split(' ').map((n: string) => n[0]).join('').toUpperCase().substring(0, 2);
-
-            const authedUser: UserProfile = {
-              id: data.user.id,
-              email: cleanEmail,
-              name,
-              role,
-              student_id: profile?.student_id || data.user.user_metadata?.student_id || preset?.student_id,
-              staff_id: profile?.staff_id || data.user.user_metadata?.staff_id || preset?.staff_id,
-              faculty: profile?.faculty || data.user.user_metadata?.faculty || preset?.faculty,
-              department: profile?.department || data.user.user_metadata?.department || preset?.department,
-              avatar_initials: initials,
-              club_name: profile?.club_name || preset?.club_name,
-            };
-
-            setUser(authedUser);
-            return { success: true, role };
+        if (error) {
+          // Strict security: reject invalid passwords immediately.
+          // Only allow local preset match if auth service returned a network error AND demo mode is explicitly on.
+          const isNetworkFailure =
+            error.message?.toLowerCase().includes('fetch') ||
+            error.message?.toLowerCase().includes('network');
+          const preset = defaultAccounts[cleanEmail];
+          if (isNetworkFailure && isDemoModeEnabled && preset && password === 'password123') {
+            setUser({ ...preset, is_demo_session: true });
+            return { success: true, role: preset.role };
           }
-        } catch (authErr: any) {
-          console.warn('Supabase sign-in note (falling back to preset session):', authErr?.message);
+          return { success: false, error: error.message || 'Invalid campus email or password.' };
+        }
+
+        if (data.user) {
+          const hydrated = await hydrateFromSessionUser(data.user);
+          setUser(hydrated);
+          return { success: true, role: hydrated.role };
         }
       }
 
-      // If preset match exists, sign in immediately with role profile
-      if (preset) {
-        setUser(preset);
-        return { success: true, role: preset.role };
+      // Offline fallback ONLY if Supabase is unconfigured and demo mode is explicitly enabled
+      if (!isSupabaseConfigured && isDemoModeEnabled) {
+        const preset = defaultAccounts[cleanEmail];
+        if (preset && password === 'password123') {
+          setUser({ ...preset, is_demo_session: true });
+          return { success: true, role: preset.role };
+        }
+        return { success: false, error: 'Invalid demo credentials.' };
       }
 
-      // If generic demo user
-      const name = cleanEmail.split('@')[0];
-      const fallbackUser: UserProfile = {
-        id: `user-${Date.now()}`,
-        email: cleanEmail,
-        name: name.charAt(0).toUpperCase() + name.slice(1),
-        role: 'student',
-        avatar_initials: name.substring(0, 2).toUpperCase(),
-      };
-      setUser(fallbackUser);
-      return { success: true, role: 'student' };
+      return { success: false, error: 'Authentication service is unavailable.' };
     } catch (err: any) {
       return { success: false, error: err?.message || 'Login failed' };
     } finally {
@@ -294,17 +358,51 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const signInDemoPreset = async (
+    presetEmail: string
+  ): Promise<{ success: boolean; role?: UserRole; error?: string }> => {
+    if (!isDemoModeEnabled) {
+      return { success: false, error: 'Quick demo login is disabled in production mode.' };
+    }
+    setLoading(true);
+    try {
+      const cleanEmail = presetEmail.trim().toLowerCase();
+      const preset = defaultAccounts[cleanEmail];
+      if (!preset) {
+        return { success: false, error: 'Unknown demo role preset.' };
+      }
+
+      // Try real Supabase JWT auth first if configured
+      if (isSupabaseConfigured) {
+        try {
+          const { data, error } = await supabase.auth.signInWithPassword({
+            email: cleanEmail,
+            password: 'password123',
+          });
+          if (!error && data.user) {
+            const hydrated = await hydrateFromSessionUser(data.user);
+            setUser(hydrated);
+            return { success: true, role: hydrated.role };
+          }
+        } catch {
+          // Fall back to explicit sandbox session if auth.users isn't seeded yet
+        }
+      }
+
+      setUser({ ...preset, is_demo_session: true });
+      return { success: true, role: preset.role };
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const signUp = async (data: {
     email: string;
-    password?: string;
+    password: string;
     fullName: string;
-    role: UserRole;
-    studentId?: string;
-    staffId?: string;
-    faculty?: string;
-    department?: string;
-    clubName?: string;
-  }): Promise<{ success: boolean; error?: string }> => {
+    studentId: string;
+    faculty: string;
+  }): Promise<{ success: boolean; needsVerification?: boolean; error?: string }> => {
     setLoading(true);
     try {
       const cleanEmail = data.email.trim().toLowerCase();
@@ -315,68 +413,76 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .toUpperCase()
         .substring(0, 2);
 
-      let createdId = `user-${Date.now()}`;
+      // Security rule: public self-signup ALWAYS registers strictly as 'student'
+      if (!isSupabaseConfigured) {
+        if (!isDemoModeEnabled) {
+          return { success: false, error: 'Registration requires an active Supabase connection.' };
+        }
+        const demoUser: UserProfile = {
+          id: `user-${Date.now()}`,
+          email: cleanEmail,
+          name: data.fullName,
+          role: 'student',
+          available_roles: ['student'],
+          student_id: data.studentId,
+          faculty: data.faculty,
+          avatar_initials: initials || 'ST',
+          email_verified: false,
+          is_demo_session: true,
+        };
+        setUser(demoUser);
+        return { success: true, needsVerification: true };
+      }
 
-      // 1. Supabase Auth signup
-      if (data.password) {
+      const { data: supaData, error: supaErr } = await supabase.auth.signUp({
+        email: cleanEmail,
+        password: data.password,
+        options: {
+          data: {
+            full_name: data.fullName,
+            student_id: data.studentId,
+            faculty: data.faculty,
+          },
+        },
+      });
+
+      if (supaErr) {
+        return { success: false, error: supaErr.message || 'Account creation failed.' };
+      }
+
+      const createdId = supaData.user?.id || `user-${Date.now()}`;
+      const isVerified = Boolean(supaData.user?.email_confirmed_at);
+
+      if (supaData.session) {
         try {
-          const { data: supaData, error: supaErr } = await supabase.auth.signUp({
+          await supabase.from('profiles').upsert({
+            id: createdId,
             email: cleanEmail,
-            password: data.password,
-            options: {
-              data: {
-                full_name: data.fullName,
-                role: data.role,
-                student_id: data.studentId,
-                staff_id: data.staffId,
-                faculty: data.faculty,
-                department: data.department,
-                club_name: data.clubName,
-              },
-            },
+            full_name: data.fullName,
+            role: 'student',
+            student_id: data.studentId,
+            faculty: data.faculty,
+            avatar_initials: initials || 'ST',
           });
-
-          if (!supaErr && supaData.user) {
-            createdId = supaData.user.id;
-          }
-        } catch (e) {
-          console.warn('Supabase signup notice:', e);
+        } catch (profErr) {
+          console.warn('Profile table upsert notice:', profErr);
         }
       }
 
-      // 2. Insert into public.profiles in Supabase
-      try {
-        await supabase.from('profiles').upsert({
-          id: createdId,
-          email: cleanEmail,
-          full_name: data.fullName,
-          role: data.role,
-          student_id: data.studentId || null,
-          staff_id: data.staffId || null,
-          faculty: data.faculty || null,
-          department: data.department || null,
-          club_name: data.clubName || null,
-          avatar_initials: initials,
-        });
-      } catch (profErr) {
-        console.warn('Profile table insert notice:', profErr);
-      }
-
-      const newUser: UserProfile = {
+      setUser({
         id: createdId,
         email: cleanEmail,
         name: data.fullName,
-        role: data.role,
+        role: 'student',
+        available_roles: ['student'],
         student_id: data.studentId,
-        staff_id: data.staffId,
         faculty: data.faculty,
-        department: data.department,
-        avatar_initials: initials,
-        club_name: data.clubName,
-      };
+        avatar_initials: initials || 'ST',
+        email_verified: isVerified,
+        is_demo_session: false,
+      });
 
-      setUser(newUser);
-      return { success: true };
+      return { success: true, needsVerification: !isVerified };
     } catch (err: any) {
       return { success: false, error: err?.message || 'Signup failed' };
     } finally {
@@ -394,15 +500,81 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.removeItem('campuspulse_auth_user');
   };
 
-  const switchRole = (newRole: UserRole) => {
-    // Find matching default preset for this role
-    const matchingEmail = Object.keys(defaultAccounts).find(
-      (em) => defaultAccounts[em].role === newRole
-    );
-    if (matchingEmail && defaultAccounts[matchingEmail]) {
-      setUser(defaultAccounts[matchingEmail]);
-    } else if (user) {
-      setUser({ ...user, role: newRole });
+  const switchRole = (newRole: UserRole): boolean => {
+    if (!user) return false;
+    // Security rule: users may ONLY switch to roles present in their granted available_roles
+    if (!user.available_roles.includes(newRole)) {
+      console.warn(`Unauthorized workspace switch attempt from ${user.role} to ${newRole}`);
+      return false;
+    }
+    setUser({ ...user, role: newRole });
+    return true;
+  };
+
+  const resetPassword = async (email: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
+        redirectTo: `${window.location.origin}/login`,
+      });
+      if (error) return { success: false, error: error.message };
+      return { success: true };
+    } catch (e: any) {
+      return { success: false, error: e?.message || 'Could not send reset email.' };
+    }
+  };
+
+  const resendVerification = async (email: string): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: email.trim().toLowerCase(),
+      });
+      if (error) return { success: false, error: error.message };
+      return { success: true };
+    } catch (e: any) {
+      return { success: false, error: e?.message || 'Could not resend verification email.' };
+    }
+  };
+
+  const refreshVerificationStatus = async (): Promise<boolean> => {
+    try {
+      const { data } = await supabase.auth.getUser();
+      const verified = Boolean(data?.user?.email_confirmed_at);
+      if (user) {
+        setUser({ ...user, email_verified: verified });
+      }
+      return verified;
+    } catch {
+      return Boolean(user?.email_verified);
+    }
+  };
+
+  const updateUserProfile = async (updates: Partial<UserProfile>): Promise<boolean> => {
+    if (!user) return false;
+    // Never allow client-side role modification here
+    const { role: _ignoredRole, available_roles: _ignoredAvail, ...safeUpdates } = updates;
+    const nextUser = { ...user, ...safeUpdates };
+    setUser(nextUser);
+
+    try {
+      if (isSupabaseConfigured && !user.is_demo_session) {
+        await supabase
+          .from('profiles')
+          .update({
+            full_name: nextUser.name,
+            faculty: nextUser.faculty,
+            registered_device_name: nextUser.registered_device_name,
+            pref_registration: nextUser.pref_registration,
+            pref_reminders: nextUser.pref_reminders,
+            pref_announcements: nextUser.pref_announcements,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', user.id);
+      }
+      return true;
+    } catch (e) {
+      console.warn('Profile sync notice:', e);
+      return true;
     }
   };
 
@@ -413,9 +585,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         role: user?.role || 'student',
         loading,
         signIn,
+        signInDemoPreset,
         signUp,
         signOut,
         switchRole,
+        resetPassword,
+        resendVerification,
+        refreshVerificationStatus,
+        updateUserProfile,
         getRoleHomeRoute,
       }}
     >

@@ -1,70 +1,73 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth, UserRole } from '../context/AuthContext';
+import { useAuth } from '../context/AuthContext';
 
 export const SignUp: React.FC = () => {
-  const [fullName, setFullName] = useState('Nethmi Perera');
-  const [role, setRole] = useState<UserRole>('student');
-  const [identifier, setIdentifier] = useState('UG/2024/CS/0142');
-  const [faculty, setFaculty] = useState('Computing');
-  const [email, setEmail] = useState('nethmi.p@university.edu');
-  const [password, setPassword] = useState('Pass123456');
+  const [fullName, setFullName] = useState('');
+  const [studentId, setStudentId] = useState('');
+  const [faculty, setFaculty] = useState('Faculty of Computing');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [acceptTerms, setAcceptTerms] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const navigate = useNavigate();
   const { signUp } = useAuth();
 
-  const handleRoleChange = (newRole: UserRole) => {
-    setRole(newRole);
-    if (newRole === 'coordinator') {
-      setIdentifier('STAFF/ENG/0042');
-      setFaculty('Faculty of Engineering');
-    } else if (newRole === 'authority') {
-      setIdentifier('AUTH/DSA/001');
-      setFaculty('Dean of Student Affairs');
-    } else if (newRole === 'admin') {
-      setIdentifier('ADM/SYS/0089');
-      setFaculty('Central Administration');
-    } else if (newRole === 'committee') {
-      setIdentifier('UG/2023/MG/0088');
-      setFaculty('Faculty of Management');
-    } else {
-      setIdentifier('UG/2024/CS/0142');
-      setFaculty('Computing');
-    }
-  };
+  // Password complexity calculation (SRS S01: >=8 chars + complexity)
+  const hasMinLen = password.length >= 8;
+  const hasUpper = /[A-Z]/.test(password);
+  const hasLower = /[a-z]/.test(password);
+  const hasDigit = /\d/.test(password);
+  const strengthScore = [hasMinLen, hasUpper, hasLower, hasDigit].filter(Boolean).length;
+  const strengthLabel =
+    strengthScore <= 1 ? 'Weak' : strengthScore === 2 || strengthScore === 3 ? 'Fair' : 'Strong';
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
     setErrorMsg('');
 
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setErrorMsg('Please enter a valid university campus email address.');
+      return;
+    }
+    if (password.length < 8 || !hasUpper || !hasDigit) {
+      setErrorMsg('Password must be at least 8 characters and include an uppercase letter and a number.');
+      return;
+    }
+    if (password !== confirmPassword) {
+      setErrorMsg('Password and Confirm Password do not match.');
+      return;
+    }
+    if (!acceptTerms) {
+      setErrorMsg('You must accept the LNBTI CampusPulse Code of Conduct & Privacy Policy.');
+      return;
+    }
+
+    setLoading(true);
     try {
-      const isStaff = role === 'coordinator' || role === 'authority' || role === 'admin';
+      // Security: public registration ALWAYS creates a 'student' account; staff/officer roles are Admin-assigned.
       const res = await signUp({
         email,
         password,
         fullName,
-        role,
-        studentId: !isStaff ? identifier : undefined,
-        staffId: isStaff ? identifier : undefined,
-        faculty: faculty,
-        department: isStaff ? faculty : undefined,
-        clubName: role === 'organizer' || role === 'committee' ? 'Sports Club' : undefined,
+        studentId,
+        faculty,
       });
 
       if (res.success) {
         navigate('/verify', {
           state: {
             fullName,
-            identifier,
+            identifier: studentId,
             email,
             faculty,
-            role,
+            needsVerification: res.needsVerification,
           },
         });
       } else {
-        setErrorMsg(res.error || 'Failed to create account');
+        setErrorMsg(res.error || 'Failed to create student account');
       }
     } catch (err: any) {
       setErrorMsg(err.message || 'An error occurred during account creation');
@@ -73,11 +76,9 @@ export const SignUp: React.FC = () => {
     }
   };
 
-  const isStaff = role === 'coordinator' || role === 'authority' || role === 'admin';
-
   return (
     <main className="min-h-screen flex flex-col items-center justify-center p-md md:p-xl bg-light-surface gap-xl font-body">
-      {/* Brand Mark with LNBTI Logo */}
+      {/* Brand Mark */}
       <div className="flex flex-col items-center gap-xs text-center">
         <div className="bg-white px-md py-sm rounded-lg border border-light-outline-variant shadow-sm inline-flex items-center justify-center">
           <img
@@ -95,7 +96,7 @@ export const SignUp: React.FC = () => {
           </span>
         </div>
         <span className="font-label text-label-sm text-light-on-surface-variant">
-          Register with Official LNBTI Student or Staff Credentials
+          Student Onboarding · Roster Verification
         </span>
       </div>
 
@@ -103,41 +104,24 @@ export const SignUp: React.FC = () => {
       <section className="w-full max-w-[500px] bg-light-surface-container-lowest border border-light-outline-variant rounded-lg p-xl flex flex-col gap-lg shadow-sm">
         <div className="flex flex-col gap-xs">
           <h1 className="font-headline text-headline-md text-light-on-surface font-bold">
-            Create University Account
+            Create Student Account
           </h1>
           <p className="font-body text-body-md text-light-on-surface-variant">
-            Register with your official campus email and university roster credentials.
+            Register with your campus email and university student ID. Club officer and staff roles are granted separately by Central Administration.
           </p>
         </div>
 
         {errorMsg && (
-          <div className="bg-light-error-container text-light-on-error-container p-sm rounded text-body-md border border-light-error/30 flex items-center gap-xs">
+          <div
+            role="alert"
+            className="bg-light-error-container text-light-on-error-container p-sm rounded text-body-md border border-light-error/30 flex items-center gap-xs"
+          >
             <span className="material-symbols-outlined text-[18px]">error</span>
             <span>{errorMsg}</span>
           </div>
         )}
 
         <form onSubmit={handleSignUp} className="flex flex-col gap-md">
-          {/* Account Role Selector */}
-          <div className="flex flex-col gap-xs">
-            <label htmlFor="signup-role" className="font-label text-label-md text-light-on-surface font-medium">
-              Account Role / Clearance
-            </label>
-            <select
-              id="signup-role"
-              value={role}
-              onChange={(e) => handleRoleChange(e.target.value as UserRole)}
-              className="w-full rounded border border-light-outline-variant bg-light-surface-container-lowest px-md py-sm font-body text-body-md text-light-on-surface focus:border-light-primary focus:ring-1 focus:ring-light-primary outline-none"
-            >
-              <option value="student">Student (General Undergrad)</option>
-              <option value="organizer">Club Organizer / Officer</option>
-              <option value="committee">Club Decision-Maker / Committee Seat</option>
-              <option value="coordinator">Lecturer Coordinator</option>
-              <option value="authority">Higher University Authority (Dean)</option>
-              <option value="admin">Central Administrator</option>
-            </select>
-          </div>
-
           <label className="flex flex-col gap-xs">
             <span className="font-label text-label-md text-light-on-surface font-medium">
               Full name
@@ -155,30 +139,32 @@ export const SignUp: React.FC = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-md">
             <label className="flex flex-col gap-xs">
               <span className="font-label text-label-md text-light-on-surface font-medium">
-                {isStaff ? 'Staff ID' : 'Student ID'}
+                Student ID
               </span>
               <input
                 type="text"
                 required
-                value={identifier}
-                onChange={(e) => setIdentifier(e.target.value)}
-                placeholder={isStaff ? 'STAFF/ENG/0042' : 'UG/2024/CS/0142'}
+                value={studentId}
+                onChange={(e) => setStudentId(e.target.value)}
+                placeholder="UG/2024/CS/0142"
                 className="w-full rounded border border-light-outline-variant bg-light-surface-container-lowest px-md py-sm font-mono text-mono-md text-light-on-surface placeholder:text-light-outline focus:border-light-primary focus:ring-1 focus:ring-light-primary outline-none"
               />
             </label>
 
             <label className="flex flex-col gap-xs">
               <span className="font-label text-label-md text-light-on-surface font-medium">
-                {isStaff ? 'Department / Unit' : 'Faculty'}
+                Faculty
               </span>
-              <input
-                type="text"
-                required
+              <select
                 value={faculty}
                 onChange={(e) => setFaculty(e.target.value)}
-                placeholder={isStaff ? 'Engineering' : 'Computing'}
                 className="w-full rounded border border-light-outline-variant bg-light-surface-container-lowest px-md py-sm font-body text-body-md text-light-on-surface focus:border-light-primary focus:ring-1 focus:ring-light-primary outline-none"
-              />
+              >
+                <option value="Faculty of Computing">Faculty of Computing</option>
+                <option value="Faculty of Engineering">Faculty of Engineering</option>
+                <option value="Faculty of Management">Faculty of Management</option>
+                <option value="Faculty of Science">Faculty of Science</option>
+              </select>
             </label>
           </div>
 
@@ -205,27 +191,78 @@ export const SignUp: React.FC = () => {
             </div>
           </label>
 
+          <div className="flex flex-col gap-xs">
+            <label className="flex flex-col gap-xs">
+              <span className="font-label text-label-md text-light-on-surface font-medium">
+                Password (min. 8 chars, uppercase + number)
+              </span>
+              <input
+                type="password"
+                required
+                minLength={8}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                className="w-full rounded border border-light-outline-variant bg-light-surface-container-lowest px-md py-sm font-body text-body-md text-light-on-surface placeholder:text-light-outline focus:border-light-primary focus:ring-1 focus:ring-light-primary outline-none"
+              />
+            </label>
+            {password.length > 0 && (
+              <div className="flex items-center justify-between text-xs">
+                <div className="flex gap-1 flex-1 mr-sm">
+                  {[1, 2, 3, 4].map((step) => (
+                    <span
+                      key={step}
+                      className={`h-1.5 flex-1 rounded-full ${
+                        strengthScore >= step
+                          ? strengthScore === 4
+                            ? 'bg-emerald-500'
+                            : strengthScore >= 2
+                            ? 'bg-amber-500'
+                            : 'bg-red-500'
+                          : 'bg-light-surface-container-high'
+                      }`}
+                    />
+                  ))}
+                </div>
+                <span className="font-label font-semibold text-light-on-surface-variant">
+                  {strengthLabel}
+                </span>
+              </div>
+            )}
+          </div>
+
           <label className="flex flex-col gap-xs">
             <span className="font-label text-label-md text-light-on-surface font-medium">
-              Password
+              Confirm Password
             </span>
             <input
               type="password"
               required
-              minLength={6}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
               placeholder="••••••••"
               className="w-full rounded border border-light-outline-variant bg-light-surface-container-lowest px-md py-sm font-body text-body-md text-light-on-surface placeholder:text-light-outline focus:border-light-primary focus:ring-1 focus:ring-light-primary outline-none"
             />
           </label>
 
+          <label className="flex items-start gap-sm cursor-pointer pt-xs">
+            <input
+              type="checkbox"
+              checked={acceptTerms}
+              onChange={(e) => setAcceptTerms(e.target.checked)}
+              className="mt-1 w-4 h-4 rounded border-light-outline text-light-primary"
+            />
+            <span className="font-body text-label-sm text-light-on-surface-variant leading-relaxed">
+              I agree to the LNBTI Student Governance Rules, Event Participation Policy, and CampusPulse Privacy Terms.
+            </span>
+          </label>
+
           <button
             type="submit"
             disabled={loading}
-            className="w-full inline-flex items-center justify-center px-md py-sm min-h-[44px] rounded bg-light-primary text-light-on-primary hover:bg-light-primary-container transition-colors duration-state-change font-label text-label-lg font-semibold cursor-pointer border-0 shadow-sm disabled:opacity-50 mt-sm"
+            className="w-full inline-flex items-center justify-center px-md py-sm min-h-[44px] rounded bg-light-primary text-light-on-primary hover:bg-light-primary-container transition-colors duration-state-change font-label text-label-lg font-semibold cursor-pointer border-0 shadow-sm disabled:opacity-50 mt-xs"
           >
-            {loading ? 'Creating Account...' : 'Register Account'}
+            {loading ? 'Creating Account...' : 'Create Account'}
           </button>
         </form>
 
@@ -235,7 +272,7 @@ export const SignUp: React.FC = () => {
             to="/login"
             className="font-label text-label-md text-light-primary hover:underline ml-xs font-semibold"
           >
-            Sign in
+            Back to Login
           </Link>
         </div>
       </section>
