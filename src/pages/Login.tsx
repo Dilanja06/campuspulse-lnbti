@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth, UserRole, getRoleHomeRoute, defaultAccounts } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { DatabaseStatusBadge } from '../components/DatabaseStatusBadge';
 
 export const Login: React.FC = () => {
   const [email, setEmail] = useState('nethmi.p@university.edu');
@@ -60,8 +61,9 @@ export const Login: React.FC = () => {
 
   return (
     <main className="min-h-screen relative flex flex-col items-center justify-center p-md md:p-xl bg-light-surface gap-lg font-body">
-      {/* Top Corner: Theme Toggle */}
-      <div className="absolute top-md right-md">
+      {/* Top Corner: Database Status & Theme Toggle */}
+      <div className="absolute top-md right-md flex items-center gap-sm">
+        <DatabaseStatusBadge />
         <button
           onClick={toggleTheme}
           title={isDark ? 'Switch to Light Theme' : 'Switch to Dark Theme'}

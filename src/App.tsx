@@ -58,6 +58,7 @@ import { CommitteeActionDetail } from './pages/committee/CommitteeActionDetail';
 // Auth Provider, Theme Provider & Role Guard
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
+import { DatabaseStatusProvider } from './context/DatabaseStatusContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 
 const RootRedirect: React.FC = () => {
@@ -73,7 +74,8 @@ export const App: React.FC = () => {
     <Router>
       <ThemeProvider>
         <AuthProvider>
-          <Routes>
+          <DatabaseStatusProvider>
+            <Routes>
           {/* Auth routes (Public) */}
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<SignUp />} />
@@ -343,6 +345,7 @@ export const App: React.FC = () => {
           <Route path="/" element={<RootRedirect />} />
           <Route path="*" element={<RootRedirect />} />
         </Routes>
+          </DatabaseStatusProvider>
         </AuthProvider>
       </ThemeProvider>
     </Router>

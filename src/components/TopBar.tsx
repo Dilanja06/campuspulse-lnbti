@@ -9,6 +9,7 @@ import {
 } from '../data/mockData';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { DatabaseStatusBadge } from './DatabaseStatusBadge';
 
 interface TopBarProps {
   unreadNotifications?: boolean;
@@ -140,8 +141,11 @@ export const TopBar: React.FC<TopBarProps> = ({ unreadNotifications = true }) =>
         </div>
       </div>
 
-      {/* Right Controls: Notifications, User Avatar & Sign Out */}
-      <div className="flex items-center gap-md">
+      {/* Right Controls: Database Health, Notifications, User Avatar & Sign Out */}
+      <div className="flex items-center gap-sm sm:gap-md">
+        {/* Live Database vs Fallback Badge */}
+        <DatabaseStatusBadge />
+
         <Link
           to="/notifications"
           aria-label="Open notifications"
