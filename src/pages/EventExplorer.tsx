@@ -157,11 +157,12 @@ export const EventExplorer: React.FC = () => {
           return (
             <div
               key={ev.id}
-              className="bg-light-surface-container-lowest border border-light-outline-variant rounded-md overflow-hidden flex flex-col justify-between shadow-sm hover:shadow-md transition-shadow"
+              onClick={() => navigate(`/events/${ev.id}`)}
+              className="bg-light-surface-container-lowest border border-light-outline-variant rounded-md overflow-hidden flex flex-col justify-between shadow-sm hover:shadow-md hover:border-light-primary transition-all cursor-pointer group"
             >
               <div>
                 {/* Event Top Banner */}
-                <div className="h-40 bg-gradient-to-br from-slate-900 to-indigo-950 p-md flex flex-col justify-between text-white relative">
+                <div className="h-40 bg-gradient-to-br from-slate-900 to-indigo-950 p-md flex flex-col justify-between text-white relative group-hover:brightness-105 transition-all">
                   <div className="flex justify-between items-start">
                     <span className="px-sm py-0.5 rounded bg-black/50 text-xs font-mono backdrop-blur-sm">
                       {ev.code}
@@ -175,10 +176,10 @@ export const EventExplorer: React.FC = () => {
 
                 {/* Event Content */}
                 <div className="p-lg flex flex-col gap-sm">
-                  <h3 className="font-headline text-title-lg text-light-on-surface font-semibold line-clamp-2 m-0">
-                    <Link to={`/events/${ev.id}`} className="text-light-on-surface hover:text-light-primary no-underline">
+                  <h3 className="font-headline text-title-lg text-light-on-surface font-semibold line-clamp-2 m-0 group-hover:text-light-primary transition-colors">
+                    <span className="text-light-on-surface group-hover:text-light-primary">
                       {ev.title}
-                    </Link>
+                    </span>
                   </h3>
 
                   <div className="flex flex-col gap-xs text-light-on-surface-variant text-body-md mt-xs">
@@ -201,7 +202,10 @@ export const EventExplorer: React.FC = () => {
               </div>
 
               {/* Card Footer */}
-              <div className="p-md bg-light-surface-container-low border-t border-light-outline-variant flex items-center justify-between">
+              <div 
+                onClick={(e) => e.stopPropagation()}
+                className="p-md bg-light-surface-container-low border-t border-light-outline-variant flex items-center justify-between"
+              >
                 <div className="flex flex-col">
                   <span className="font-label text-label-sm text-light-on-surface-variant">Fee</span>
                   <span className="font-mono text-title-md font-bold text-light-primary">
@@ -210,13 +214,13 @@ export const EventExplorer: React.FC = () => {
                 </div>
 
                 <div className="flex items-center gap-xs">
-                  <Link
-                    to={`/events/${ev.id}`}
-                    className="p-xs text-light-on-surface-variant hover:text-light-primary"
+                  <button
+                    onClick={() => navigate(`/events/${ev.id}`)}
+                    className="p-xs text-light-on-surface-variant hover:text-light-primary bg-transparent border-0 cursor-pointer flex items-center justify-center rounded"
                     title="View details"
                   >
                     <span className="material-symbols-outlined text-[20px]">info</span>
-                  </Link>
+                  </button>
                   {getActionForEvent(ev)}
                 </div>
               </div>

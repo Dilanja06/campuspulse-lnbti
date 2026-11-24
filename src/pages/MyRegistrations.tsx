@@ -104,7 +104,8 @@ export const MyRegistrations: React.FC = () => {
           filteredRegistrations.map((reg) => (
             <div
               key={reg.id}
-              className="bg-light-surface-container-lowest border border-light-outline-variant rounded-md p-lg flex flex-col md:flex-row md:items-center justify-between gap-lg shadow-sm hover:border-light-primary transition-all"
+              onClick={() => navigate(`/events/${reg.event_id}`)}
+              className="bg-light-surface-container-lowest border border-light-outline-variant rounded-md p-lg flex flex-col md:flex-row md:items-center justify-between gap-lg shadow-sm hover:border-light-primary hover:shadow-md transition-all cursor-pointer group"
             >
               {/* Left Details */}
               <div className="flex flex-col gap-sm flex-1">
@@ -116,10 +117,10 @@ export const MyRegistrations: React.FC = () => {
                 </div>
 
                 <div className="flex flex-col">
-                  <h3 className="font-headline text-title-lg text-light-on-surface font-semibold m-0">
-                    <Link to={`/events/${reg.event_id}`} className="text-light-on-surface hover:text-light-primary no-underline">
+                  <h3 className="font-headline text-title-lg text-light-on-surface font-semibold m-0 group-hover:text-light-primary transition-colors">
+                    <span className="text-light-on-surface group-hover:text-light-primary">
                       {reg.event_title}
-                    </Link>
+                    </span>
                   </h3>
                   <span className="font-label text-label-sm text-light-secondary font-semibold mt-0.5">
                     {reg.club_name}
@@ -146,7 +147,10 @@ export const MyRegistrations: React.FC = () => {
               </div>
 
               {/* Right Actions */}
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-sm shrink-0">
+              <div 
+                onClick={(e) => e.stopPropagation()}
+                className="flex flex-col sm:flex-row items-stretch sm:items-center gap-sm shrink-0"
+              >
                 {reg.status === 'confirmed' && (
                   <button
                     onClick={() => navigate('/my-qr')}

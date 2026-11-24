@@ -137,8 +137,11 @@ export const Home: React.FC = () => {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-lg">
                 {confirmedReg && (
-                  <div className="bg-light-surface-container-lowest border border-light-outline-variant rounded-md overflow-hidden flex flex-col justify-between shadow-sm hover:border-light-primary transition-all">
-                    <div className="h-36 bg-gradient-to-br from-slate-800 to-slate-900 p-md flex flex-col justify-between text-white relative">
+                  <div 
+                    onClick={() => navigate(`/events/${confirmedReg.event_id}`)}
+                    className="bg-light-surface-container-lowest border border-light-outline-variant rounded-md overflow-hidden flex flex-col justify-between shadow-sm hover:border-light-primary hover:shadow-md transition-all cursor-pointer group"
+                  >
+                    <div className="h-36 bg-gradient-to-br from-slate-800 to-slate-900 p-md flex flex-col justify-between text-white relative group-hover:brightness-105 transition-all">
                       <div className="flex justify-between items-start">
                         <span className="px-sm py-0.5 rounded bg-black/40 text-xs font-mono backdrop-blur-sm">
                           {confirmedReg.reg_code}
@@ -151,7 +154,7 @@ export const Home: React.FC = () => {
                     </div>
 
                     <div className="p-lg flex flex-col gap-sm flex-1">
-                      <h3 className="font-headline text-title-lg text-light-on-surface font-semibold line-clamp-1">
+                      <h3 className="font-headline text-title-lg text-light-on-surface font-semibold line-clamp-1 group-hover:text-light-primary transition-colors">
                         {confirmedReg.event_title}
                       </h3>
 
@@ -167,7 +170,10 @@ export const Home: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="p-md bg-light-surface-container-low border-t border-light-outline-variant flex items-center justify-between">
+                    <div 
+                      onClick={(e) => e.stopPropagation()}
+                      className="p-md bg-light-surface-container-low border-t border-light-outline-variant flex items-center justify-between"
+                    >
                       <span className="text-label-sm font-label text-success font-semibold flex items-center gap-xs">
                         <span className="material-symbols-outlined text-[16px]">check_circle</span>
                         <span>Verified Pass</span>
@@ -184,8 +190,11 @@ export const Home: React.FC = () => {
                 )}
 
                 {pendingReg && (
-                  <div className="bg-light-surface-container-lowest border border-amber-300 rounded-md overflow-hidden flex flex-col justify-between shadow-sm">
-                    <div className="h-36 bg-gradient-to-br from-amber-900 to-stone-900 p-md flex flex-col justify-between text-white relative">
+                  <div 
+                    onClick={() => navigate(`/events/${pendingReg.event_id}`)}
+                    className="bg-light-surface-container-lowest border border-amber-300 rounded-md overflow-hidden flex flex-col justify-between shadow-sm hover:border-amber-500 hover:shadow-md transition-all cursor-pointer group"
+                  >
+                    <div className="h-36 bg-gradient-to-br from-amber-900 to-stone-900 p-md flex flex-col justify-between text-white relative group-hover:brightness-105 transition-all">
                       <div className="flex justify-between items-start">
                         <span className="px-sm py-0.5 rounded bg-black/40 text-xs font-mono backdrop-blur-sm">
                           {pendingReg.reg_code}
@@ -198,7 +207,7 @@ export const Home: React.FC = () => {
                     </div>
 
                     <div className="p-lg flex flex-col gap-sm flex-1">
-                      <h3 className="font-headline text-title-lg text-light-on-surface font-semibold line-clamp-1">
+                      <h3 className="font-headline text-title-lg text-light-on-surface font-semibold line-clamp-1 group-hover:text-light-primary transition-colors">
                         {pendingReg.event_title}
                       </h3>
 
@@ -214,7 +223,10 @@ export const Home: React.FC = () => {
                       </div>
                     </div>
 
-                    <div className="p-md bg-warning-container/30 border-t border-amber-200 flex items-center justify-between">
+                    <div 
+                      onClick={(e) => e.stopPropagation()}
+                      className="p-md bg-warning-container/30 border-t border-amber-200 flex items-center justify-between"
+                    >
                       <span className="text-title-md font-mono font-bold text-light-primary">
                         LKR {pendingReg.fee}
                       </span>
