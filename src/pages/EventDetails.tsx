@@ -4,6 +4,7 @@ import { AppLayout } from '../components/AppLayout';
 import { StatusChip } from '../components/StatusChip';
 import { EventItem, RegistrationItem } from '../types';
 import { dataService } from '../services/dataService';
+import { getEventCoverImage } from '../utils/eventImages';
 
 export const EventDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -76,15 +77,21 @@ export const EventDetails: React.FC = () => {
       </div>
 
       {/* Hero Banner */}
-      <div className="h-64 md:h-72 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-lg p-xl flex flex-col justify-end text-white relative shadow-sm overflow-hidden">
-        <div className="absolute top-md right-md">
+      <div className="h-64 md:h-80 rounded-lg p-xl flex flex-col justify-end text-white relative shadow-sm overflow-hidden bg-slate-900">
+        <img
+          src={getEventCoverImage(event)}
+          alt={event.title}
+          className="absolute inset-0 w-full h-full object-cover"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-black/30" />
+        <div className="absolute top-md right-md z-10">
           <StatusChip label={event.status} status={event.status} />
         </div>
         <div className="flex flex-col gap-xs max-w-3xl z-10">
-          <span className="text-teal-300 font-label text-label-md font-semibold uppercase tracking-wider">
+          <span className="text-teal-300 font-label text-label-md font-semibold uppercase tracking-wider drop-shadow">
             {event.category} · Organized by {event.club_name}
           </span>
-          <h1 className="font-headline text-headline-lg font-bold text-white m-0">
+          <h1 className="font-headline text-headline-lg font-bold text-white m-0 drop-shadow-md">
             {event.title}
           </h1>
         </div>

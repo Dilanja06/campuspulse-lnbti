@@ -4,6 +4,7 @@ import { AppLayout } from '../components/AppLayout';
 import { StatusChip } from '../components/StatusChip';
 import { ClubItem, EventItem } from '../types';
 import { dataService } from '../services/dataService';
+import { getEventCoverImage } from '../utils/eventImages';
 
 export const ClubProfile: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -129,14 +130,17 @@ export const ClubProfile: React.FC = () => {
               clubEvents.map((ev) => (
                 <div
                   key={ev.id}
-                  className="bg-light-surface-container-lowest border border-light-outline-variant rounded-md p-md flex flex-col sm:flex-row sm:items-center justify-between gap-md shadow-sm"
+                  onClick={() => navigate(`/events/${ev.id}`)}
+                  className="bg-light-surface-container-lowest border border-light-outline-variant rounded-md p-md flex flex-col sm:flex-row sm:items-center justify-between gap-md shadow-sm hover:border-light-primary transition-all cursor-pointer group"
                 >
                   <div className="flex items-center gap-md">
-                    <div className="w-12 h-12 rounded bg-light-surface-container-high flex items-center justify-center text-light-primary shrink-0">
-                      <span className="material-symbols-outlined text-[24px]">event</span>
-                    </div>
+                    <img
+                      src={getEventCoverImage(ev)}
+                      alt={ev.title}
+                      className="w-14 h-14 rounded object-cover shrink-0 border border-light-outline-variant"
+                    />
                     <div className="flex flex-col">
-                      <h3 className="font-headline text-title-md font-semibold text-light-on-surface m-0">
+                      <h3 className="font-headline text-title-md font-semibold text-light-on-surface m-0 group-hover:text-light-primary transition-colors">
                         {ev.title}
                       </h3>
                       <span className="font-body text-label-sm text-light-on-surface-variant">
@@ -146,7 +150,10 @@ export const ClubProfile: React.FC = () => {
                   </div>
 
                   <button
-                    onClick={() => navigate(`/events/${ev.id}`)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      navigate(`/events/${ev.id}`);
+                    }}
                     className="px-md py-xs rounded bg-light-surface-container-low text-light-primary border border-light-outline-variant font-label text-label-md font-semibold hover:bg-light-surface-container cursor-pointer shrink-0"
                   >
                     View Details

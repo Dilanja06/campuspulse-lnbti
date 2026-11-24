@@ -5,6 +5,7 @@ import { StatusChip } from '../components/StatusChip';
 import { currentUser } from '../data/mockData';
 import { RegistrationItem, ClubItem, NotificationItem } from '../types';
 import { dataService } from '../services/dataService';
+import { getEventCoverImage } from '../utils/eventImages';
 
 export const Home: React.FC = () => {
   const navigate = useNavigate();
@@ -141,16 +142,27 @@ export const Home: React.FC = () => {
                     onClick={() => navigate(`/events/${confirmedReg.event_id}`)}
                     className="bg-light-surface-container-lowest border border-light-outline-variant rounded-md overflow-hidden flex flex-col justify-between shadow-sm hover:border-light-primary hover:shadow-md transition-all cursor-pointer group"
                   >
-                    <div className="h-36 bg-gradient-to-br from-slate-800 to-slate-900 p-md flex flex-col justify-between text-white relative group-hover:brightness-105 transition-all">
-                      <div className="flex justify-between items-start">
-                        <span className="px-sm py-0.5 rounded bg-black/40 text-xs font-mono backdrop-blur-sm">
-                          {confirmedReg.reg_code}
+                    <div className="h-40 relative overflow-hidden bg-slate-900">
+                      <img
+                        src={getEventCoverImage({ image_url: confirmedReg.image_url, title: confirmedReg.event_title })}
+                        alt={confirmedReg.event_title}
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                        loading="lazy"
+                        onError={(e) => {
+                          (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1546519638-68e109498ffc?auto=format&fit=crop&w=800&q=80';
+                        }}
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-black/40 p-md flex flex-col justify-between text-white">
+                        <div className="flex justify-between items-start">
+                          <span className="px-sm py-0.5 rounded bg-black/60 text-xs font-mono backdrop-blur-sm border border-white/10">
+                            {confirmedReg.reg_code}
+                          </span>
+                          <StatusChip label="Confirmed" status="confirmed" />
+                        </div>
+                        <span className="text-xs uppercase tracking-wider text-teal-300 font-semibold truncate drop-shadow">
+                          {confirmedReg.club_name}
                         </span>
-                        <StatusChip label="Confirmed" status="confirmed" />
                       </div>
-                      <span className="text-xs uppercase tracking-wider text-teal-300 font-semibold truncate">
-                        {confirmedReg.club_name}
-                      </span>
                     </div>
 
                     <div className="p-lg flex flex-col gap-sm flex-1">
@@ -194,16 +206,27 @@ export const Home: React.FC = () => {
                     onClick={() => navigate(`/events/${pendingReg.event_id}`)}
                     className="bg-light-surface-container-lowest border border-amber-300 rounded-md overflow-hidden flex flex-col justify-between shadow-sm hover:border-amber-500 hover:shadow-md transition-all cursor-pointer group"
                   >
-                    <div className="h-36 bg-gradient-to-br from-amber-900 to-stone-900 p-md flex flex-col justify-between text-white relative group-hover:brightness-105 transition-all">
-                      <div className="flex justify-between items-start">
-                        <span className="px-sm py-0.5 rounded bg-black/40 text-xs font-mono backdrop-blur-sm">
-                          {pendingReg.reg_code}
+                    <div className="h-40 relative overflow-hidden bg-amber-950">
+                      <img
+                        src={getEventCoverImage({ image_url: pendingReg.image_url, title: pendingReg.event_title })}
+                        alt={pendingReg.event_title}
+                        className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                        loading="lazy"
+                        onError={(e) => {
+                          (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1546519638-68e109498ffc?auto=format&fit=crop&w=800&q=80';
+                        }}
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-black/40 p-md flex flex-col justify-between text-white">
+                        <div className="flex justify-between items-start">
+                          <span className="px-sm py-0.5 rounded bg-black/60 text-xs font-mono backdrop-blur-sm border border-white/10">
+                            {pendingReg.reg_code}
+                          </span>
+                          <StatusChip label="Payment Pending" status="payment_pending" />
+                        </div>
+                        <span className="text-xs uppercase tracking-wider text-amber-300 font-semibold truncate drop-shadow">
+                          {pendingReg.club_name}
                         </span>
-                        <StatusChip label="Payment Pending" status="payment_pending" />
                       </div>
-                      <span className="text-xs uppercase tracking-wider text-amber-300 font-semibold truncate">
-                        {pendingReg.club_name}
-                      </span>
                     </div>
 
                     <div className="p-lg flex flex-col gap-sm flex-1">

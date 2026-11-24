@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { OrganizerLayout } from '../../components/OrganizerLayout';
 import { dataService } from '../../services/dataService';
+import { EVENT_COVER_PRESETS } from '../../utils/eventImages';
 
 export const CreateEventProposal: React.FC = () => {
   const navigate = useNavigate();
@@ -17,6 +18,7 @@ export const CreateEventProposal: React.FC = () => {
   const [manualApproval, setManualApproval] = useState(true);
   const [budget, setBudget] = useState('24500');
   const [externalApproval, setExternalApproval] = useState('No — On-campus internal event');
+  const [imageUrl, setImageUrl] = useState('https://images.unsplash.com/photo-1546519638-68e109498ffc?auto=format&fit=crop&w=800&q=80');
   const [attachedFileName, setAttachedFileName] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -42,6 +44,7 @@ export const CreateEventProposal: React.FC = () => {
         hold_duration: seatHold,
         require_manual_approval: manualApproval,
         external_approval: externalApproval,
+        image_url: imageUrl,
       });
       navigate('/organizer/proposals');
     } catch (err) {
@@ -73,7 +76,27 @@ export const CreateEventProposal: React.FC = () => {
         hold_duration: seatHold,
         require_manual_approval: manualApproval,
         external_approval: externalApproval,
+        image_url: imageUrl,
       });
+
+      // Also create event so it immediately shows in the Event Explorer with this image!
+      await dataService.createEvent({
+        title,
+        club_name: 'University Sports Council',
+        club_id: 'club-sports',
+        category: category.includes('Sports') ? 'Sports' : category.includes('Technical') ? 'Technical' : category.includes('Cultural') ? 'Cultural' : 'Academic',
+        start_date: eventDate,
+        time: timeWindow,
+        venue,
+        fee: parseFloat(fee) || 0,
+        capacity: parseInt(capacity) || 50,
+        registered: 0,
+        eligibility: 'All Registered Undergraduates',
+        status: 'published',
+        description: `${title} organized by University Sports Council. Register now to secure your seat.`,
+        image_url: imageUrl,
+      });
+
       navigate('/organizer/proposals');
     } catch (err) {
       console.warn('Error creating proposal:', err);
@@ -86,6 +109,19 @@ export const CreateEventProposal: React.FC = () => {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       setAttachedFileName(e.target.files[0].name);
+    }
+  };
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (typeof reader.result === 'string') {
+          setImageUrl(reader.result);
+        }
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -226,10 +262,118 @@ export const CreateEventProposal: React.FC = () => {
             </div>
           </section>
 
-          {/* Section 2: Registration & Fee Rules */}
+          {/* Section: Event Cover Photo & Promotional Banner */}
+          <section className="bg-light-surface-container-lowest border border-light-outline-variant rounded-md p-lg flex flex-col gap-md shadow-sm">
+            <div className="flex flex-col gap-xs">
+              <h2 className="font-headline text-headline-sm text-light-on-surface">
+                2. Event Cover Image &amp; Flyer
+              </h2>
+              <p className="font-body text-body-md text-light-on-surface-variant">
+                Upload a promotional banner flyer or select a campus cover image. This image will appear at the top of the event card in the student portal and on the public event page.
+              </p>
+            </div>
+
+            {/* Live Preview Card */}
+            <div className="flex flex-col gap-xs">
+              <span className="font-label text-label-sm font-semibold text-light-on-surface">
+                Card Header Preview
+              </span>
+              <div className="h-44 max-w-md w-full relative rounded-md overflow-hidden bg-slate-900 border border-light-outline-variant shadow-sm">
+                <img
+                  src={imageUrl || 'https://images.unsplash.com/photo-1546519638-68e109498ffc?auto=format&fit=crop&w=800&q=80'}
+                  alt={title || 'Event preview'}
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-black/40 p-md flex flex-col justify-between text-white">
+                  <div className="flex justify-between items-start">
+                    <span className="px-sm py-0.5 rounded bg-black/60 text-xs font-mono backdrop-blur-sm border border-white/10">
+                      PREVIEW
+                    </span>
+                    <span className="px-sm py-0.5 rounded-full bg-success text-on-success text-xs font-semibold">
+                      Published
+                    </span>
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-xs uppercase tracking-wider text-teal-300 font-semibold drop-shadow">
+                      {category} · University Sports Council
+                    </span>
+                    <span className="font-title text-title-md font-bold text-white line-clamp-1 drop-shadow">
+                      {title || 'Your Event Title'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Input Options: Preset buttons, File upload & URL */}
+            <div className="flex flex-col gap-md pt-xs">
+              <div className="flex flex-col gap-xs">
+                <span className="font-label text-label-sm font-semibold text-light-on-surface">
+                  Quick Preset Covers
+                </span>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-sm">
+                  {EVENT_COVER_PRESETS.map((preset) => (
+                    <button
+                      key={preset.label}
+                      type="button"
+                      onClick={() => setImageUrl(preset.url)}
+                      className={`flex items-center gap-sm p-xs rounded border text-left cursor-pointer transition-all ${
+                        imageUrl === preset.url
+                          ? 'border-light-primary bg-light-primary-container/20 ring-1 ring-light-primary'
+                          : 'border-light-outline-variant bg-light-surface-container-low hover:bg-light-surface-container'
+                      }`}
+                    >
+                      <img
+                        src={preset.url}
+                        alt={preset.label}
+                        className="w-10 h-10 rounded object-cover shrink-0"
+                      />
+                      <span className="font-label text-label-sm text-light-on-surface font-medium truncate">
+                        {preset.label}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-md items-end">
+                <div className="flex flex-col gap-xs">
+                  <label htmlFor="image-url-input" className="font-label text-label-md text-light-on-surface">
+                    Or Enter Image URL
+                  </label>
+                  <input
+                    id="image-url-input"
+                    type="url"
+                    placeholder="https://images.unsplash.com/... or web link"
+                    value={imageUrl}
+                    onChange={(e) => setImageUrl(e.target.value)}
+                    className="w-full px-md py-sm rounded bg-light-surface-container-lowest border border-light-outline text-light-on-surface font-body text-body-md focus:border-light-primary focus:ring-2 focus:ring-light-primary/20 outline-none"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-xs">
+                  <label className="font-label text-label-md text-light-on-surface">
+                    Or Upload Flyer / Poster
+                  </label>
+                  <label className="flex items-center justify-center gap-xs px-md py-sm rounded bg-light-surface-container-lowest text-light-primary border border-light-outline-variant hover:bg-light-surface-container-low transition-colors duration-state-change font-label text-label-md cursor-pointer border-dashed border-2">
+                    <span className="material-symbols-outlined text-[20px]">add_photo_alternate</span>
+                    <span>Browse from device</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleImageUpload}
+                    />
+                  </label>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Section 3: Registration & Fee Rules */}
           <section className="bg-light-surface-container-lowest border border-light-outline-variant rounded-md p-lg flex flex-col gap-md shadow-sm">
             <h2 className="font-headline text-headline-sm text-light-on-surface">
-              2. Registration &amp; Fee Policy
+              3. Registration &amp; Fee Policy
             </h2>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-md">
@@ -304,10 +448,10 @@ export const CreateEventProposal: React.FC = () => {
             </label>
           </section>
 
-          {/* Section 3: Budget & Supporting Evidence */}
+          {/* Section 4: Budget & Supporting Evidence */}
           <section className="bg-light-surface-container-lowest border border-light-outline-variant rounded-md p-lg flex flex-col gap-md shadow-sm">
             <h2 className="font-headline text-headline-sm text-light-on-surface">
-              3. Budget &amp; Supporting Documents
+              4. Budget &amp; Supporting Documents
             </h2>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-md">

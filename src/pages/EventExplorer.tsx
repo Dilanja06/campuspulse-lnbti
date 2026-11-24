@@ -4,6 +4,7 @@ import { AppLayout } from '../components/AppLayout';
 import { StatusChip } from '../components/StatusChip';
 import { EventItem, RegistrationItem } from '../types';
 import { dataService } from '../services/dataService';
+import { getEventCoverImage } from '../utils/eventImages';
 
 export const EventExplorer: React.FC = () => {
   const navigate = useNavigate();
@@ -161,17 +162,29 @@ export const EventExplorer: React.FC = () => {
               className="bg-light-surface-container-lowest border border-light-outline-variant rounded-md overflow-hidden flex flex-col justify-between shadow-sm hover:shadow-md hover:border-light-primary transition-all cursor-pointer group"
             >
               <div>
-                {/* Event Top Banner */}
-                <div className="h-40 bg-gradient-to-br from-slate-900 to-indigo-950 p-md flex flex-col justify-between text-white relative group-hover:brightness-105 transition-all">
-                  <div className="flex justify-between items-start">
-                    <span className="px-sm py-0.5 rounded bg-black/50 text-xs font-mono backdrop-blur-sm">
-                      {ev.code}
+                {/* Event Top Banner Image */}
+                <div className="h-44 relative overflow-hidden bg-slate-900">
+                  <img
+                    src={getEventCoverImage(ev)}
+                    alt={ev.title}
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    loading="lazy"
+                    onError={(e) => {
+                      // Fallback if image fails to load
+                      (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1523580494863-6f3031224c94?auto=format&fit=crop&w=800&q=80';
+                    }}
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-black/40 p-md flex flex-col justify-between text-white">
+                    <div className="flex justify-between items-start">
+                      <span className="px-sm py-0.5 rounded bg-black/60 text-xs font-mono backdrop-blur-sm border border-white/10">
+                        {ev.code}
+                      </span>
+                      <StatusChip label={ev.status} status={ev.status} />
+                    </div>
+                    <span className="text-xs uppercase tracking-wider text-teal-300 font-semibold drop-shadow">
+                      {ev.category} · {ev.club_name}
                     </span>
-                    <StatusChip label={ev.status} status={ev.status} />
                   </div>
-                  <span className="text-xs uppercase tracking-wider text-teal-300 font-semibold">
-                    {ev.category} · {ev.club_name}
-                  </span>
                 </div>
 
                 {/* Event Content */}

@@ -52,6 +52,7 @@ export interface RegistrationItem {
   student_id?: string;
   user_email?: string;
   activity?: string;
+  image_url?: string;
   check_in_status?: 'not_checked_in' | 'checked_in';
   checked_in_time?: string;
 }
@@ -139,6 +140,7 @@ export interface ProposalItem {
   hold_duration?: string;
   require_manual_approval?: boolean;
   external_approval?: string;
+  image_url?: string;
   description?: string;
   authorities?: string[];
   committee_signoffs?: Array<{ name: string; role: string; date: string; status: string }>;

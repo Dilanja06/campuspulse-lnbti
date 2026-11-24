@@ -78,6 +78,7 @@ export const initialEvents: EventItem[] = [
     registered: 28,
     eligibility: 'All Registered Undergraduates',
     status: 'published',
+    image_url: 'https://images.unsplash.com/photo-1546519638-68e109498ffc?auto=format&fit=crop&w=800&q=80',
     description: 'Annual inter-faculty indoor sports championship featuring badminton, table tennis, basketball 3v3, and chess tournaments. Trophies and participation certificates awarded.',
     schedule: [
       { time: '08:30 AM', title: 'Opening Ceremony & Roll Call', description: 'Faculty march-in and registration verification.' },
@@ -100,6 +101,7 @@ export const initialEvents: EventItem[] = [
     registered: 86,
     eligibility: 'Computing & Engineering Students',
     status: 'published',
+    image_url: 'https://images.unsplash.com/photo-1504384308090-c894fdcc538d?auto=format&fit=crop&w=800&q=80',
     description: 'A 12-hour intensive hackathon building next-generation AI agents and distributed systems. Mentored by industry leaders with cash prizes for top 3 teams.',
     schedule: [
       { time: '09:00 AM', title: 'Keynote & Problem Release', description: 'Theme reveal and workspace setup.' },
@@ -122,6 +124,7 @@ export const initialEvents: EventItem[] = [
     registered: 310,
     eligibility: 'Open to All Students & Alumni',
     status: 'published',
+    image_url: 'https://images.unsplash.com/photo-1511578314322-379afb476865?auto=format&fit=crop&w=800&q=80',
     description: 'An evening of inspiring keynotes on social impact leadership, networking banquet, and musical performances celebrating youth-led community projects.',
   },
   {
@@ -139,6 +142,7 @@ export const initialEvents: EventItem[] = [
     registered: 250,
     eligibility: 'All University Members',
     status: 'closed',
+    image_url: 'https://images.unsplash.com/photo-1469488865564-c2de10f69f96?auto=format&fit=crop&w=800&q=80',
     description: 'A showcase of three student-written one-act plays touching on university life, identity, and satire. Special guest artist evaluations.',
   },
   {
@@ -156,6 +160,7 @@ export const initialEvents: EventItem[] = [
     registered: 35,
     eligibility: 'Final Year & Postgraduate Students',
     status: 'published',
+    image_url: 'https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&w=800&q=80',
     description: 'Hands-on practical guide to thesis typesetting in LaTeX, citation management with BibTeX, and submitting to peer-reviewed journals.',
   },
   {
@@ -173,6 +178,7 @@ export const initialEvents: EventItem[] = [
     registered: 60,
     eligibility: 'Registered Debate Team Members',
     status: 'cancelled',
+    image_url: 'https://images.unsplash.com/photo-1475721027785-f74eccf877e2?auto=format&fit=crop&w=800&q=80',
     description: 'Parliamentary style debate on tech ethics. Cancelled due to faculty exam scheduling clash.',
   },
   {
@@ -190,6 +196,7 @@ export const initialEvents: EventItem[] = [
     registered: 66,
     eligibility: 'All Registered Undergraduates',
     status: 'published',
+    image_url: 'https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&w=800&q=80',
     description: 'Annual fast-paced inter-faculty futsal competition. Team captain and squad verification active.',
   },
   {
@@ -207,6 +214,7 @@ export const initialEvents: EventItem[] = [
     registered: 112,
     eligibility: 'First Year Students',
     status: 'closed',
+    image_url: 'https://images.unsplash.com/photo-1526676037777-05a232554f77?auto=format&fit=crop&w=800&q=80',
     description: 'Orientation to campus athletics facilities, intramural leagues, and gym memberships.',
   }
 ];

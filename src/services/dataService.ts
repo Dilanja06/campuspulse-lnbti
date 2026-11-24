@@ -81,6 +81,36 @@ export const dataService = {
     }
   },
 
+  async createEvent(event: Omit<EventItem, 'id' | 'code'> & { code?: string }): Promise<EventItem> {
+    const nextNum = Math.floor(100 + Math.random() * 900);
+    const newEvent: EventItem = {
+      ...event,
+      id: `evt-${Date.now()}`,
+      code: event.code || `EVT-2026-${nextNum}`,
+      registered: event.registered || 0,
+      status: event.status || 'published',
+      eligibility: event.eligibility || 'All Registered Undergraduates',
+    };
+
+    try {
+      const { data, error } = await supabase
+        .from('events')
+        .insert([newEvent])
+        .select()
+        .single();
+
+      if (!error && data) {
+        initialEvents.unshift(data as EventItem);
+        return data as EventItem;
+      }
+    } catch (e) {
+      console.warn('Supabase createEvent notice:', e);
+    }
+
+    initialEvents.unshift(newEvent);
+    return newEvent;
+  },
+
   // --- REGISTRATIONS ---
   async getRegistrations(): Promise<RegistrationItem[]> {
     try {

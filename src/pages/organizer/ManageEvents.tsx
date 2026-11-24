@@ -56,7 +56,7 @@ export const ManageEvents: React.FC = () => {
           {/* Event 1: University Indoor Games Day */}
           <article className="bg-light-surface-container-lowest border border-light-outline-variant rounded-md overflow-hidden flex flex-col md:flex-row shadow-sm">
             <img
-              src="https://lh3.googleusercontent.com/aida/ALJJyrAvs_a5eVeVsidNSMPhk0_89s2EaOqj7kb0x-Rz3jocZbKT1aBIgH01GKJ5quU1TU7DEnqThYCz0opGFovadYYXsujAo8AEbF6H3cdtLp4tTt1oQFzchwAiMpBWXfdlZr8keMUZczSQbWLZM-vEjdBffY2aUOw-tkxo063HkEfFKjhxo2ZY16SaJdamoi4-1ZHRvWuS3dJUNLIbISYURqhI5uvc5hQrLlLUvI54W6U0UU49eYHqh44I9AZo"
+              src="https://images.unsplash.com/photo-1546519638-68e109498ffc?auto=format&fit=crop&w=800&q=80"
               alt="University Indoor Games Day"
               className="w-full md:w-64 h-48 md:h-auto object-cover shrink-0"
             />
@@ -118,8 +118,14 @@ export const ManageEvents: React.FC = () => {
           </article>
 
           {/* Event 2: Inter-Faculty Futsal Cup */}
-          <article className="bg-light-surface-container-lowest border border-light-outline-variant rounded-md p-lg flex flex-col gap-md shadow-sm">
-            <div className="flex flex-wrap items-start justify-between gap-md">
+          <article className="bg-light-surface-container-lowest border border-light-outline-variant rounded-md overflow-hidden flex flex-col md:flex-row shadow-sm">
+            <img
+              src="https://images.unsplash.com/photo-1574629810360-7efbbe195018?auto=format&fit=crop&w=800&q=80"
+              alt="Inter-Faculty Futsal Cup"
+              className="w-full md:w-64 h-48 md:h-auto object-cover shrink-0"
+            />
+            <div className="p-lg flex-1 flex flex-col justify-between gap-md">
+              <div className="flex flex-wrap items-start justify-between gap-md">
               <div className="flex flex-col gap-xs">
                 <div className="flex flex-wrap items-center gap-sm">
                   <span className="inline-flex items-center gap-xs px-sm py-xs rounded-full bg-success-container text-on-success-container">
@@ -171,7 +177,8 @@ export const ManageEvents: React.FC = () => {
                 </Link>
               </div>
             </div>
-          </article>
+          </div>
+        </article>
 
           {/* Event 3: Completed Freshers Sports Orientation */}
           <article className="bg-light-surface-container-lowest border border-light-outline-variant rounded-md p-lg flex flex-wrap items-center justify-between gap-md shadow-sm">
