@@ -242,63 +242,16 @@ VALUES
 ON CONFLICT (id) DO NOTHING;
 
 
--- =====================================================================
--- 7. PROPOSALS TABLE
--- =====================================================================
-CREATE TABLE IF NOT EXISTS public.proposals (
-    id TEXT PRIMARY KEY DEFAULT uuid_generate_v4()::text,
-    code TEXT NOT NULL,
-    title TEXT NOT NULL,
-    club_id TEXT NOT NULL,
-    club_name TEXT NOT NULL,
-    category TEXT NOT NULL,
-    event_date TEXT NOT NULL,
-    time TEXT NOT NULL,
-    venue TEXT NOT NULL,
-    capacity INTEGER NOT NULL DEFAULT 50,
-    fee NUMERIC NOT NULL DEFAULT 0,
-    budget NUMERIC NOT NULL DEFAULT 0,
-    status TEXT NOT NULL DEFAULT 'Draft',
-    stage INTEGER NOT NULL DEFAULT 1,
-    stage_label TEXT,
-    comment TEXT,
-    hold_duration TEXT,
-    require_manual_approval BOOLEAN DEFAULT true,
-    external_approval TEXT,
-    submitted_at TEXT NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT timezone('utc', now())
-);
-
-ALTER TABLE public.proposals ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Public all on proposals" ON public.proposals FOR ALL USING (true) WITH CHECK (true);
-
-INSERT INTO public.proposals (id, code, title, club_id, club_name, category, event_date, time, venue, capacity, fee, budget, status, stage, stage_label, comment, submitted_at)
+-- Proposals Seed
+INSERT INTO public.proposals (id, code, title, club_id, club_name, category, event_date, time, venue, capacity, fee, budget, status, stage, stage_label, comment, submitted_at, image_url)
 VALUES
-('prop-1084', 'PROP-1084', 'Annual Athletics Meet 2026', 'club-sports', 'University Sports Council', 'Sports & Athletics', '2026-12-12', '08:00 AM – 06:00 PM', 'University Track & Ground', 250, 0, 85000, 'Higher Authority', 3, 'Dean of Student Affairs', NULL, '02 Nov 2026'),
-('prop-1091', 'PROP-1091', 'Badminton Coaching Clinic', 'club-sports', 'University Sports Council', 'Workshop & Clinic', '2026-12-18', '09:00 AM – 03:00 PM', 'Main Indoor Hall', 50, 250, 32000, 'Revision Requested', 2, 'Lecturer Coordinator', 'Comment from Dr. Kavinda Silva (Lecturer Coordinator): Please attach updated shuttlecock & safety kit quotation.', '05 Nov 2026'),
-('prop-1062', 'PROP-1062', 'University Indoor Games Day', 'club-sports', 'University Sports Council', 'Sports & Recreation', '2026-12-05', '08:30 AM – 05:00 PM', 'Main Hall · Indoor Gymnasium', 40, 500, 65000, 'Approved & Published', 4, 'Published on Explorer', NULL, '20 Oct 2026'),
-('prop-1098', 'PROP-1098', 'Table Tennis Open Tournament', 'club-sports', 'University Sports Council', 'Sports & Recreation', '2026-12-08', '09:00 AM – 04:00 PM', 'Indoor Gymnasium · Main Hall', 64, 350, 24500, 'Draft', 1, 'Committee Draft', 'Missing venue confirmation document', '08 Nov 2026')
+('prop-1084', 'PROP-1084', 'Annual Athletics Meet 2026', 'club-sports', 'University Sports Council', 'Sports & Athletics', '2026-12-12', '08:00 AM – 06:00 PM', 'University Track & Ground', 250, 0, 85000, 'Higher Authority', 3, 'Dean of Student Affairs', NULL, '02 Nov 2026', 'https://images.unsplash.com/photo-1461896836934-ffe607ba8211?auto=format&fit=crop&w=1200&q=80'),
+('prop-1091', 'PROP-1091', 'Badminton Coaching Clinic', 'club-sports', 'University Sports Council', 'Workshop & Clinic', '2026-12-18', '09:00 AM – 03:00 PM', 'Main Indoor Hall', 50, 250, 32000, 'Revision Requested', 2, 'Lecturer Coordinator', 'Comment from Dr. Kavinda Silva (Lecturer Coordinator): Please attach updated quotation.', '05 Nov 2026', 'https://images.unsplash.com/photo-1626224583764-f87db24ac4ea?auto=format&fit=crop&w=1200&q=80'),
+('prop-1062', 'PROP-1062', 'University Indoor Games Day', 'club-sports', 'University Sports Council', 'Sports & Recreation', '2026-12-05', '08:30 AM – 05:00 PM', 'Main Hall · Indoor Gymnasium', 40, 500, 65000, 'Approved & Published', 4, 'Published on Explorer', NULL, '20 Oct 2026', 'https://images.unsplash.com/photo-1546519638-68e109498ffc?auto=format&fit=crop&w=1200&q=80'),
+('prop-1098', 'PROP-1098', 'Table Tennis Open Tournament', 'club-sports', 'University Sports Council', 'Sports & Recreation', '2026-12-08', '09:00 AM – 04:00 PM', 'Indoor Gymnasium · Main Hall', 64, 350, 24500, 'Draft', 1, 'Committee Draft', 'Missing venue confirmation document', '08 Nov 2026', 'https://images.unsplash.com/photo-1534158914592-062992fbe900?auto=format&fit=crop&w=1200&q=80')
 ON CONFLICT (id) DO NOTHING;
 
--- =====================================================================
--- 8. CLUB MEMBERS TABLE
--- =====================================================================
-CREATE TABLE IF NOT EXISTS public.club_members (
-    id TEXT PRIMARY KEY DEFAULT uuid_generate_v4()::text,
-    student_id TEXT NOT NULL,
-    name TEXT NOT NULL,
-    email TEXT NOT NULL,
-    faculty TEXT NOT NULL,
-    role TEXT NOT NULL,
-    club_id TEXT NOT NULL,
-    status TEXT NOT NULL DEFAULT 'Active',
-    requested_date TEXT,
-    created_at TIMESTAMPTZ DEFAULT timezone('utc', now())
-);
-
-ALTER TABLE public.club_members ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Public all on club_members" ON public.club_members FOR ALL USING (true) WITH CHECK (true);
-
+-- Club Members Seed
 INSERT INTO public.club_members (id, student_id, name, email, faculty, role, club_id, status, requested_date)
 VALUES
 ('mem-1', 'UG/2023/CS/0012', 'Ishara De Silva', 'ishara.d@university.edu', 'Faculty of Computing', 'President', 'club-sports', 'Active', '15 Jan 2024'),
