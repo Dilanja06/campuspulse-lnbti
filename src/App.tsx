@@ -56,9 +56,17 @@ import { AssignedCommitteeActions } from './pages/committee/AssignedCommitteeAct
 import { CommitteeActionDetail } from './pages/committee/CommitteeActionDetail';
 
 // Auth Provider, Theme Provider & Role Guard
-import { AuthProvider } from './context/AuthContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
+
+const RootRedirect: React.FC = () => {
+  const { user, role, getRoleHomeRoute } = useAuth();
+  if (user) {
+    return <Navigate to={getRoleHomeRoute(role)} replace />;
+  }
+  return <Navigate to="/login" replace />;
+};
 
 export const App: React.FC = () => {
   return (
@@ -331,9 +339,9 @@ export const App: React.FC = () => {
             }
           />
 
-          {/* Fallback to Home */}
-          <Route path="/" element={<Navigate to="/home" replace />} />
-          <Route path="*" element={<Navigate to="/home" replace />} />
+          {/* Root & Catch-all: Route unauthenticated users to /login and authenticated users to their role dashboard */}
+          <Route path="/" element={<RootRedirect />} />
+          <Route path="*" element={<RootRedirect />} />
         </Routes>
         </AuthProvider>
       </ThemeProvider>

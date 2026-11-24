@@ -130,10 +130,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         return JSON.parse(cached);
       } catch (e) {
-        return defaultAccounts['nethmi.p@university.edu'];
+        return null;
       }
     }
-    return defaultAccounts['nethmi.p@university.edu'];
+    return null;
   });
   const [loading, setLoading] = useState(false);
 
