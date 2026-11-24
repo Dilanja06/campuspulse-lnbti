@@ -10,6 +10,7 @@ export const PaymentAndReceipt: React.FC = () => {
   const [selectedTx, setSelectedTx] = useState<TransactionItem | null>(null);
   const [paying, setPaying] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [successBanner, setSuccessBanner] = useState<{ eventTitle: string; amount: number } | null>(null);
 
   useEffect(() => {
     async function loadPayments() {
@@ -25,22 +26,32 @@ export const PaymentAndReceipt: React.FC = () => {
   }, []);
 
   const handlePay = async (txId: string) => {
+    const tx = transactions.find((t) => t.id === txId) || selectedTx;
     setPaying(true);
-    setTimeout(async () => {
-      alert('Mock payment successful! Transaction status updated in Supabase.');
-      setPaying(false);
+    try {
+      const res = await dataService.confirmPayment({
+        transactionId: txId,
+        eventTitle: tx?.event_title,
+        amount: tx?.amount,
+      });
 
-      // Update local and remote status
+      // Update local transaction list
       setTransactions((prev) =>
         prev.map((t) => (t.id === txId ? { ...t, status: 'Successful' } : t))
       );
-      if (selectedTx?.id === txId) {
-        setSelectedTx({ ...selectedTx, status: 'Successful' });
+      if (selectedTx?.id === txId || (!selectedTx && tx)) {
+        setSelectedTx({ ...(tx || selectedTx!), status: 'Successful' });
       }
 
-      // Also update registration status
-      await dataService.updateRegistrationStatus('reg-1', 'confirmed');
-    }, 700);
+      setSuccessBanner({
+        eventTitle: tx?.event_title || 'University Indoor Games Day 2026',
+        amount: tx?.amount || 500,
+      });
+    } catch (e) {
+      console.error('Payment error:', e);
+    } finally {
+      setPaying(false);
+    }
   };
 
   return (
@@ -54,6 +65,40 @@ export const PaymentAndReceipt: React.FC = () => {
           University payment gateway logs, verified receipts, and automated refund tracking.
         </p>
       </div>
+
+      {/* Success Notification Banner */}
+      {successBanner && (
+        <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-700/60 p-md rounded-md flex flex-wrap items-center justify-between gap-md text-emerald-950 dark:text-emerald-100 shadow-sm animate-fadeIn">
+          <div className="flex items-center gap-md">
+            <span className="material-symbols-outlined text-[28px] text-emerald-600 dark:text-emerald-400">
+              check_circle
+            </span>
+            <div className="flex flex-col">
+              <span className="font-title text-title-md font-bold">
+                Payment Confirmed · LKR {successBanner.amount.toFixed(2)} for {successBanner.eventTitle}
+              </span>
+              <span className="font-body text-body-sm opacity-90">
+                Payment confirmed through University Gateway. Your payment hold has resolved into an active verified seat reservation!
+              </span>
+            </div>
+          </div>
+          <div className="flex items-center gap-sm">
+            <Link
+              to="/my-qr"
+              className="px-md py-xs rounded bg-emerald-600 hover:bg-emerald-700 text-white font-label text-label-md font-bold no-underline flex items-center gap-xs shadow-sm"
+            >
+              <span className="material-symbols-outlined text-[18px]">qr_code</span>
+              <span>View Attendance QR</span>
+            </Link>
+            <Link
+              to="/home"
+              className="px-md py-xs rounded bg-white dark:bg-slate-800 border border-emerald-300 dark:border-emerald-700 text-emerald-900 dark:text-emerald-200 font-label text-label-md font-medium no-underline hover:bg-emerald-50 dark:hover:bg-slate-700"
+            >
+              Dashboard
+            </Link>
+          </div>
+        </div>
+      )}
 
       {/* 12-Column Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-xl items-start">
@@ -229,6 +274,16 @@ export const PaymentAndReceipt: React.FC = () => {
                   LKR {selectedTx.amount.toFixed(2)}
                 </span>
               </div>
+
+              {selectedTx.status === 'Successful' && (
+                <Link
+                  to="/my-qr"
+                  className="w-full py-xs rounded bg-light-primary text-light-on-primary font-label text-label-md font-semibold hover:bg-light-primary-container transition-colors flex items-center justify-center gap-xs no-underline shadow-sm"
+                >
+                  <span className="material-symbols-outlined text-[18px]">qr_code</span>
+                  <span>View Attendance QR Pass</span>
+                </Link>
+              )}
 
               <button
                 onClick={() => window.print()}

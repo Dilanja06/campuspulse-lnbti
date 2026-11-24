@@ -7,6 +7,7 @@ import { dataService } from '../services/dataService';
 export const MyQR: React.FC = () => {
   const navigate = useNavigate();
   const [timeLeft, setTimeLeft] = useState(30);
+  const [allConfirmed, setAllConfirmed] = useState<RegistrationItem[]>([]);
   const [registration, setRegistration] = useState<RegistrationItem | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -14,8 +15,32 @@ export const MyQR: React.FC = () => {
     async function loadReg() {
       setLoading(true);
       const regs = await dataService.getRegistrations();
-      const confirmed = regs.find((r) => r.status === 'confirmed');
-      if (confirmed) setRegistration(confirmed);
+      const confirmedList = regs.filter((r) => r.status === 'confirmed');
+      setAllConfirmed(confirmedList);
+
+      // Check if user recently paid for a specific event
+      let target: RegistrationItem | undefined;
+      try {
+        const raw = localStorage.getItem('lnbti_recent_payment');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          target = confirmedList.find(
+            (r) =>
+              r.reg_code === parsed.reg_code ||
+              (parsed.event_title && r.event_title.toLowerCase().includes(parsed.event_title.toLowerCase()))
+          );
+        }
+      } catch (e) {
+        console.warn(e);
+      }
+
+      if (!target && confirmedList.length > 0) {
+        target = confirmedList[0];
+      }
+
+      if (target) {
+        setRegistration(target);
+      }
       setLoading(false);
     }
     loadReg();
@@ -70,6 +95,25 @@ export const MyQR: React.FC = () => {
           </div>
         ) : (
           <div className="w-full max-w-[440px] bg-light-surface-container-lowest border border-light-outline-variant rounded-lg p-xl flex flex-col items-center gap-lg shadow-md text-center">
+            {/* Multiple Passes Switcher */}
+            {allConfirmed.length > 1 && (
+              <div className="w-full flex items-center justify-center gap-xs overflow-x-auto pb-xs">
+                {allConfirmed.map((pass) => (
+                  <button
+                    key={pass.id}
+                    onClick={() => setRegistration(pass)}
+                    className={`px-sm py-1 rounded text-xs font-label cursor-pointer border transition-colors ${
+                      registration.id === pass.id
+                        ? 'bg-light-primary text-light-on-primary border-light-primary font-bold shadow-sm'
+                        : 'bg-light-surface-container-low text-light-on-surface-variant border-light-outline-variant hover:bg-light-surface-container'
+                    }`}
+                  >
+                    {pass.reg_code} · {pass.event_title.split(' ')[0]}
+                  </button>
+                ))}
+              </div>
+            )}
+
             {/* Status Badge */}
             <span className="inline-flex items-center gap-xs px-md py-xs rounded-full bg-success-container text-success font-label text-label-sm font-semibold">
               <span className="material-symbols-outlined text-[16px]">sensors</span>

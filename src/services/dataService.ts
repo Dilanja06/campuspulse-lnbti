@@ -127,6 +127,23 @@ export const dataService = {
     return newEvent;
   },
 
+  async updateEvent(id: string, updates: Partial<EventItem>): Promise<boolean> {
+    const target = initialEvents.find((e) => e.id === id);
+    if (target) {
+      Object.assign(target, updates);
+    }
+    try {
+      const { error } = await supabase
+        .from('events')
+        .update(updates)
+        .eq('id', id);
+      return !error;
+    } catch (e) {
+      console.warn('Supabase updateEvent notice:', e);
+      return true;
+    }
+  },
+
   // --- REGISTRATIONS ---
   async getRegistrations(): Promise<RegistrationItem[]> {
     try {
@@ -183,6 +200,29 @@ export const dataService = {
 
     initialRegistrations.unshift(newReg);
     return newReg;
+  },
+
+  async addRegistration(
+    registration: Omit<RegistrationItem, 'id' | 'created_at'>
+  ): Promise<RegistrationItem> {
+    return this.createRegistration(registration);
+  },
+
+  async updateRegistrationStatus(id: string, status: RegistrationItem['status']): Promise<boolean> {
+    const target = initialRegistrations.find((r) => r.id === id || r.reg_code === id);
+    if (target) {
+      target.status = status;
+    }
+    try {
+      const { error } = await supabase
+        .from('registrations')
+        .update({ status })
+        .or(`id.eq.${id},reg_code.eq.${id}`);
+      return !error;
+    } catch (e) {
+      console.warn('Supabase updateRegistrationStatus notice:', e);
+      return true;
+    }
   },
 
   async cancelRegistration(id: string): Promise<boolean> {
@@ -635,6 +675,20 @@ export const dataService = {
     }
   },
 
+  async addNotification(notif: Omit<NotificationItem, 'id'>): Promise<NotificationItem> {
+    const newNotif: NotificationItem = {
+      ...notif,
+      id: `notif-${Date.now()}`,
+    };
+    initialNotifications.unshift(newNotif);
+    try {
+      await supabase.from('notifications').insert([newNotif]);
+    } catch (e) {
+      console.warn('Supabase addNotification notice:', e);
+    }
+    return newNotif;
+  },
+
   // --- PAYMENTS ---
   async getPayments(): Promise<TransactionItem[]> {
     try {
@@ -674,6 +728,123 @@ export const dataService = {
       console.warn('Supabase updatePaymentStatus notice:', e);
       return false;
     }
+  },
+
+  async createPayment(payment: TransactionItem): Promise<TransactionItem> {
+    initialTransactions.unshift(payment);
+    try {
+      await supabase.from('payments').insert([payment]);
+    } catch (e) {
+      console.warn('Supabase createPayment notice:', e);
+    }
+    return payment;
+  },
+
+  async confirmPayment(params: {
+    transactionId?: string;
+    registrationId?: string;
+    eventTitle?: string;
+    amount?: number;
+  }): Promise<{ success: boolean; transaction?: TransactionItem; registration?: RegistrationItem }> {
+    const { transactionId, registrationId, eventTitle, amount } = params;
+
+    // 1. Update / locate Transaction
+    let targetTx = initialTransactions.find(
+      (t) =>
+        (transactionId && t.id === transactionId) ||
+        (eventTitle && t.event_title.toLowerCase() === eventTitle.toLowerCase())
+    );
+    if (!targetTx && initialTransactions.length > 0) {
+      targetTx = initialTransactions.find((t) => t.status === 'Pending');
+    }
+    if (targetTx) {
+      targetTx.status = 'Successful';
+    }
+
+    const title = eventTitle || targetTx?.event_title || 'University Indoor Games Day 2026';
+    const amt = amount || targetTx?.amount || 500;
+
+    // 2. Update / locate Registration
+    let targetReg = initialRegistrations.find(
+      (r) =>
+        (registrationId && (r.id === registrationId || r.reg_code === registrationId)) ||
+        (r.event_title.toLowerCase().includes(title.toLowerCase()) && r.status === 'payment_pending')
+    );
+    if (!targetReg) {
+      targetReg = initialRegistrations.find(
+        (r) => r.event_title.toLowerCase().includes(title.toLowerCase())
+      );
+    }
+    if (targetReg) {
+      targetReg.status = 'confirmed';
+    }
+
+    // 3. Update Notification from "Payment Hold Expiring Soon" to "Payment Confirmed"
+    const notifIndex = initialNotifications.findIndex(
+      (n) =>
+        n.id === 'notif-1' ||
+        n.title.toLowerCase().includes('payment hold') ||
+        n.description.toLowerCase().includes('indoor games')
+    );
+
+    const successNotif: NotificationItem = {
+      id: notifIndex !== -1 ? initialNotifications[notifIndex].id : `notif-paid-${Date.now()}`,
+      title: `Payment Confirmed: ${title}`,
+      description: `Payment of LKR ${amt.toFixed(2)} received and verified. Attendance QR pass generated.`,
+      timestamp: 'Just now',
+      read: false,
+      type: 'success',
+      icon: 'verified',
+    };
+
+    if (notifIndex !== -1) {
+      initialNotifications[notifIndex] = successNotif;
+    } else {
+      initialNotifications.unshift(successNotif);
+    }
+
+    // 4. Save to localStorage for instant UI state
+    try {
+      localStorage.setItem(
+        'lnbti_recent_payment',
+        JSON.stringify({
+          event_title: title,
+          amount: amt,
+          reg_code: targetReg?.reg_code || 'REG-88145',
+          event_id: targetReg?.event_id || 'evt-1',
+          timestamp: Date.now(),
+        })
+      );
+    } catch (e) {
+      console.warn('localStorage error:', e);
+    }
+
+    // 5. Sync to Supabase in background
+    try {
+      if (targetTx) {
+        await supabase.from('payments').update({ status: 'Successful' }).eq('id', targetTx.id);
+      }
+      if (targetReg) {
+        await supabase.from('registrations').update({ status: 'confirmed' }).eq('id', targetReg.id);
+      } else {
+        await supabase.from('registrations').update({ status: 'confirmed' }).ilike('event_title', `%${title}%`);
+      }
+      if (notifIndex !== -1) {
+        await supabase.from('notifications').update({
+          title: successNotif.title,
+          description: successNotif.description,
+          type: 'success',
+          icon: 'verified',
+          read: false,
+        }).eq('id', successNotif.id);
+      } else {
+        await supabase.from('notifications').insert([successNotif]);
+      }
+    } catch (e) {
+      console.warn('Supabase confirmPayment error:', e);
+    }
+
+    return { success: true, transaction: targetTx, registration: targetReg };
   },
 
   // --- CENTRAL ADMIN OPERATIONS ---

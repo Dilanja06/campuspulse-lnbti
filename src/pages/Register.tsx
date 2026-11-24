@@ -60,6 +60,27 @@ export const Register: React.FC = () => {
 
     // Save directly to Supabase
     await dataService.addRegistration(newReg);
+
+    if (event.fee > 0) {
+      await dataService.createPayment({
+        id: `tx-${Date.now()}`,
+        receipt_no: `RCT-2026-${Math.floor(1000 + Math.random() * 9000)}`,
+        event_title: event.title,
+        club_name: event.club_name,
+        amount: event.fee,
+        date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+        status: 'Pending',
+      });
+      await dataService.addNotification({
+        title: 'Payment Hold Active',
+        description: `Your seat for ${event.title} is reserved. Complete LKR ${event.fee} payment to confirm your seat.`,
+        timestamp: 'Just now',
+        read: false,
+        type: 'warning',
+        icon: 'timer',
+      });
+    }
+
     setSubmitting(false);
 
     if (event.fee > 0) {

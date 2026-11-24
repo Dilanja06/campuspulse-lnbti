@@ -21,6 +21,15 @@ export const MyRegistrations: React.FC = () => {
     loadRegs();
   }, []);
 
+  const handleCancelHold = async (regId: string, eventTitle: string) => {
+    if (window.confirm(`Are you sure you want to cancel your seat hold for "${eventTitle}"? Your reserved seat will be opened to other students.`)) {
+      await dataService.cancelRegistration(regId);
+      setRegistrations((prev) =>
+        prev.map((r) => (r.id === regId ? { ...r, status: 'cancelled' } : r))
+      );
+    }
+  };
+
   const filteredRegistrations = registrations.filter((reg) => {
     if (activeTab === 'all') return true;
     return reg.status === activeTab;
@@ -171,7 +180,7 @@ export const MyRegistrations: React.FC = () => {
                       <span>Complete Payment · LKR {reg.fee}</span>
                     </button>
                     <button
-                      onClick={() => alert('Registration hold released.')}
+                      onClick={() => handleCancelHold(reg.id, reg.event_title)}
                       className="px-md py-sm rounded bg-transparent text-light-on-surface-variant hover:text-light-error text-label-md font-medium border-0 cursor-pointer"
                     >
                       Cancel Hold
