@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { CoordinatorLayout } from '../../components/CoordinatorLayout';
 import { ProposalItem, OfficialClubRecord } from '../../types';
+import { getProposalDocuments } from '../../utils/documentUtils';
 import { dataService } from '../../services/dataService';
 import { useAuth } from '../../context/AuthContext';
 
@@ -156,6 +157,10 @@ export const CoordinatorDashboard: React.FC = () => {
                         </span>
                         <span className="font-label text-label-sm text-light-on-surface-variant">
                           Rev #{prop.current_revision || 1}
+                        </span>
+                        <span className="inline-flex items-center gap-xs font-label text-label-xs text-light-primary bg-light-primary-container/20 px-xs py-0.5 rounded">
+                          <span className="material-symbols-outlined text-[13px]">attachment</span>
+                          <span>{getProposalDocuments(prop).length} Attached Docs</span>
                         </span>
                       </div>
                       <h3 className="font-title text-title-md text-light-on-surface font-semibold">

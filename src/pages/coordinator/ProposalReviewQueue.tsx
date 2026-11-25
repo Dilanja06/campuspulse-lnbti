@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { CoordinatorLayout } from '../../components/CoordinatorLayout';
 import { dataService } from '../../services/dataService';
 import { ProposalItem } from '../../types';
+import { getProposalDocuments } from '../../utils/documentUtils';
 
 export const ProposalReviewQueue: React.FC = () => {
   const [proposals, setProposals] = useState<ProposalItem[]>([]);
@@ -137,6 +138,12 @@ export const ProposalReviewQueue: React.FC = () => {
                         <span className="font-body text-body-md text-light-on-surface-variant">
                           {prop.club_name} {prop.comment ? `· ${prop.comment}` : ''}
                         </span>
+                        <div className="flex items-center gap-xs mt-1">
+                          <span className="inline-flex items-center gap-xs font-label text-label-xs text-light-primary bg-light-primary-container/20 px-xs py-0.5 rounded">
+                            <span className="material-symbols-outlined text-[13px]">attachment</span>
+                            <span>{getProposalDocuments(prop).length} Document{getProposalDocuments(prop).length !== 1 ? 's' : ''} Attached</span>
+                          </span>
+                        </div>
                       </div>
                     </td>
                     <td className="px-md py-md font-body text-body-md text-light-on-surface tabular-nums whitespace-nowrap">

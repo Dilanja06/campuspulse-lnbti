@@ -2,8 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { CoordinatorLayout } from '../../components/CoordinatorLayout';
 import { dataService } from '../../services/dataService';
-import { ProposalItem } from '../../types';
+import { ProposalItem, ProposalDocument } from '../../types';
 import { getEventCoverImage } from '../../utils/eventImages';
+import { DocumentViewerModal } from '../../components/DocumentViewerModal';
+import { getProposalDocuments } from '../../utils/documentUtils';
 
 export const ProposalReviewRouting: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -23,6 +25,7 @@ export const ProposalReviewRouting: React.FC = () => {
     'Budget and external sponsorship MoU verified. Routing to Dean of Student Affairs and External Verification.'
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [activeDocument, setActiveDocument] = useState<ProposalDocument | null>(null);
 
   useEffect(() => {
     const fetchProposal = async () => {
@@ -85,6 +88,8 @@ export const ProposalReviewRouting: React.FC = () => {
   const propDesc =
     proposal?.description ||
     '24-hour hardware prototyping challenge open to undergraduates across 4 partner universities, with external industry mentorship and prize pool sponsorship.';
+
+  const documents = getProposalDocuments(proposal);
 
   return (
     <CoordinatorLayout>
@@ -194,6 +199,90 @@ export const ProposalReviewRouting: React.FC = () => {
               <p className="font-body text-body-md text-light-on-surface-variant pt-sm border-t border-light-outline-variant">
                 {propDesc}
               </p>
+            </section>
+
+            {/* Uploaded Documents & Clearances Section */}
+            <section className="bg-light-surface-container-lowest border border-light-outline-variant rounded-md p-lg flex flex-col gap-md shadow-sm">
+              <div className="flex items-center justify-between gap-md flex-wrap">
+                <div>
+                  <h2 className="font-headline text-headline-sm text-light-on-surface m-0">
+                    Uploaded Proposal Documents &amp; Clearances
+                  </h2>
+                  <p className="font-body text-body-sm text-light-on-surface-variant m-0 mt-0.5">
+                    Official files attached by the organizing club for lecturer coordinator review and compliance check.
+                  </p>
+                </div>
+                <span className="font-mono text-mono-sm font-semibold text-light-primary bg-light-primary-container/20 px-sm py-xs rounded-full">
+                  {documents.length} File{documents.length !== 1 ? 's' : ''} Attached
+                </span>
+              </div>
+
+              <div className="flex flex-col gap-sm">
+                {documents.map((doc) => (
+                  <div
+                    key={doc.id}
+                    className="p-md rounded-lg bg-light-surface-container-low/40 border border-light-outline-variant hover:border-light-primary/40 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-md"
+                  >
+                    <div className="flex items-start gap-md min-w-0">
+                      <div className="w-10 h-10 rounded-lg bg-light-primary/10 text-light-primary flex items-center justify-center shrink-0 mt-0.5 sm:mt-0">
+                        <span className="material-symbols-outlined text-[22px]">
+                          {doc.type === 'clearance'
+                            ? 'verified_user'
+                            : doc.type === 'flyer'
+                            ? 'image'
+                            : 'description'}
+                        </span>
+                      </div>
+                      <div className="flex flex-col min-w-0">
+                        <div className="flex items-center gap-xs flex-wrap">
+                          <span className="font-title text-title-md font-semibold text-light-on-surface truncate">
+                            {doc.name}
+                          </span>
+                          <span
+                            className={`font-label text-label-xs px-xs py-0.5 rounded-full ${
+                              doc.verified
+                                ? 'bg-success-container text-on-success-container'
+                                : 'bg-info-container text-on-info-container'
+                            }`}
+                          >
+                            {doc.verified ? 'Verified' : 'Attached'}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-xs text-label-sm text-light-on-surface-variant flex-wrap mt-0.5">
+                          <span>{doc.category_label || doc.type.toUpperCase()}</span>
+                          <span>·</span>
+                          <span>{doc.size || '350 KB'}</span>
+                          <span>·</span>
+                          <span>Uploaded {doc.uploaded_at}</span>
+                          {doc.issuer && (
+                            <>
+                              <span>·</span>
+                              <span className="text-light-primary font-medium">Issuer: {doc.issuer}</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-xs shrink-0 self-end sm:self-auto">
+                      <button
+                        type="button"
+                        onClick={() => setActiveDocument(doc)}
+                        className="inline-flex items-center gap-xs px-md py-xs rounded bg-light-primary text-light-on-primary hover:bg-light-primary-container font-label text-label-sm font-semibold cursor-pointer border-0 transition-colors"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">visibility</span>
+                        <span>View Document</span>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+
+                {documents.length === 0 && (
+                  <p className="font-body text-body-md text-light-on-surface-variant p-md bg-light-surface-container-low/40 rounded text-center">
+                    No documents attached to this proposal yet.
+                  </p>
+                )}
+              </div>
             </section>
 
             <section className="bg-light-surface-container-lowest border border-light-outline-variant rounded-md p-lg flex flex-col gap-md shadow-sm">
@@ -385,6 +474,18 @@ export const ProposalReviewRouting: React.FC = () => {
           </aside>
         </div>
       </main>
+
+      <DocumentViewerModal
+        isOpen={!!activeDocument}
+        onClose={() => setActiveDocument(null)}
+        document={activeDocument}
+        proposalCode={propCode}
+        proposalTitle={propTitle}
+        clubName={propClub}
+        budget={propBudget}
+        venue={propVenue}
+        eventDate={propDate}
+      />
     </CoordinatorLayout>
   );
 };

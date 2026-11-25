@@ -145,15 +145,29 @@ export const dataService = {
       }
     }
 
-    // Fallback for local preview (skip massive base64 payloads for non-images)
-    if (file.type.startsWith('image/') && file.size <= 350 * 1024) {
-      const dataUrl = await new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '');
-        reader.onerror = () => resolve('');
-        reader.readAsDataURL(file);
-      });
-      if (dataUrl) return { url: dataUrl, name: file.name };
+    // Fallback for local preview & viewing (support PDFs, Docs, and Images up to 10MB)
+    if (file.size <= 10 * 1024 * 1024) {
+      try {
+        const dataUrl = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '');
+          reader.onerror = () => resolve('');
+          reader.readAsDataURL(file);
+        });
+        if (dataUrl && dataUrl.length > 0) {
+          return { url: dataUrl, name: file.name };
+        }
+      } catch {
+        // fallback to object URL below
+      }
+    }
+    if (typeof URL !== 'undefined' && typeof URL.createObjectURL === 'function') {
+      try {
+        const blobUrl = URL.createObjectURL(file);
+        return { url: blobUrl, name: file.name };
+      } catch {
+        // fallback
+      }
     }
     return { url: `local-attachment://${cleanName}`, name: file.name };
   },

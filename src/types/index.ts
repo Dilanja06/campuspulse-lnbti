@@ -133,6 +133,19 @@ export interface StudentProfile {
   roles: string[];
 }
 
+export interface ProposalDocument {
+  id: string;
+  name: string;
+  url: string;
+  type: 'budget' | 'safety' | 'clearance' | 'flyer' | 'general';
+  category_label?: string;
+  size?: string;
+  uploaded_at: string;
+  issuer?: string;
+  reference_no?: string;
+  verified?: boolean;
+}
+
 export interface ProposalItem {
   id: string;
   code: string;
@@ -170,6 +183,7 @@ export interface ProposalItem {
   refund_policy?: string;
   document_name?: string;
   document_url?: string;
+  documents?: ProposalDocument[];
   current_revision?: number;
   authorities?: string[];
   committee_signoffs?: Array<{ name: string; role: string; date: string; status: string }>;
@@ -327,6 +341,7 @@ export interface ExternalVerificationItem {
   issuer: string;
   reference_no: string;
   document_name: string;
+  document_url?: string;
   submitted_at: string;
   status: 'Pending Verification' | 'Verified' | 'Flagged Invalid';
   reviewer_note?: string;

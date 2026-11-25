@@ -430,6 +430,7 @@ export const initialProposals: ProposalItem[] = [
     stage_label: 'Stage 3: Dean of Student Affairs',
     image_url: 'https://images.unsplash.com/photo-1461896836934-ffe607ba8211?auto=format&fit=crop&w=1200&q=80',
     description: 'Annual inter-faculty track and field championship with medical standby unit, certified track marshals, and digital QR check-in for all athletes.',
+    document_name: 'Athletics_Meet_Budget_and_Safety_Plan.pdf',
     comment: 'Endorsed by Dr. Kavinda Silva. Routed to Dean of Student Affairs and External Verification.',
     submitted_at: '02 Nov 2026',
     authorities: ['Dean of Student Affairs', 'External-Approval Verification Staff'],
@@ -461,6 +462,7 @@ export const initialProposals: ProposalItem[] = [
     stage_label: 'Stage 3: Dean of Student Affairs',
     image_url: 'https://images.unsplash.com/photo-1485827404703-89b55fcc595e?auto=format&fit=crop&w=1200&q=80',
     description: '24-hour hardware prototyping challenge open to undergraduates across 4 partner universities, with external industry mentorship and prize pool sponsorship.',
+    document_name: 'Robotics_Hackathon_Budget_and_Hardware_Safety.pdf',
     submitted_at: '08 Nov 2026',
     authorities: ['Dean of Student Affairs', 'Faculty Dean (Engineering)', 'External-Approval Verification Staff'],
     committee_signoffs: [
@@ -494,6 +496,7 @@ export const initialProposals: ProposalItem[] = [
     stage_label: 'Stage 3: Dean of Student Affairs',
     image_url: 'https://images.unsplash.com/photo-1492684223066-81342ee5ff30?auto=format&fit=crop&w=1200&q=80',
     description: 'Annual cultural talent presentation, acoustic performances, and university color drama awards.',
+    document_name: 'Cultural_Night_Auditorium_Clearance_and_Budget.pdf',
     submitted_at: '10 Nov 2026',
     authorities: ['Dean of Student Affairs'],
     coordinator_endorsement: {
@@ -520,6 +523,7 @@ export const initialProposals: ProposalItem[] = [
     stage_label: 'Lecturer Coordinator Review',
     image_url: 'https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1200&q=80',
     description: 'Practical training on edge IoT deployment, MQTT protocols, and AWS IoT Core architecture for computing undergraduates.',
+    document_name: 'IEEE_Bootcamp_Lab_Reservation_and_Budget.pdf',
     submitted_at: '09 Nov 2026',
     authorities: ['Faculty Dean (Computing)'],
     committee_signoffs: [
@@ -545,6 +549,7 @@ export const initialProposals: ProposalItem[] = [
     stage_label: 'Lecturer Coordinator',
     image_url: 'https://images.unsplash.com/photo-1626224583764-f87db24ac4ea?auto=format&fit=crop&w=1200&q=80',
     comment: 'Please attach updated shuttlecock & safety kit quotation from Treasurer.',
+    document_name: 'Badminton_Clinic_Equipment_and_Coach_Quote.pdf',
     submitted_at: '05 Nov 2026',
   },
   {
@@ -564,6 +569,7 @@ export const initialProposals: ProposalItem[] = [
     stage: 4,
     stage_label: 'Published on Explorer',
     image_url: 'https://images.unsplash.com/photo-1546519638-68e109498ffc?auto=format&fit=crop&w=1200&q=80',
+    document_name: 'Indoor_Games_Facility_Clearance_and_Schedule.pdf',
     submitted_at: '20 Oct 2026',
   },
   {
@@ -583,6 +589,7 @@ export const initialProposals: ProposalItem[] = [
     stage: 1,
     stage_label: 'Committee Draft',
     image_url: 'https://images.unsplash.com/photo-1534158914592-062992fbe900?auto=format&fit=crop&w=1200&q=80',
+    document_name: 'Table_Tennis_Open_Tournament_Draft.pdf',
     comment: 'Missing venue confirmation document',
     submitted_at: '08 Nov 2026',
   },

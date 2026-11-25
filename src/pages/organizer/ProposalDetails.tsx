@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { OrganizerLayout } from '../../components/OrganizerLayout';
-import { ProposalItem, ProposalRevision } from '../../types';
+import { ProposalItem, ProposalRevision, ProposalDocument } from '../../types';
 import { dataService } from '../../services/dataService';
+import { DocumentViewerModal } from '../../components/DocumentViewerModal';
+import { getProposalDocuments } from '../../utils/documentUtils';
 
 export const ProposalDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -27,6 +29,7 @@ export const ProposalDetails: React.FC = () => {
   const [documentUrl, setDocumentUrl] = useState('');
   const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState(false);
+  const [activeDocument, setActiveDocument] = useState<ProposalDocument | null>(null);
 
   const loadProposalData = async () => {
     if (!id) return;
@@ -398,6 +401,78 @@ export const ProposalDetails: React.FC = () => {
               </section>
             )}
 
+            {/* Attached Documents for Proposal */}
+            {proposal && (
+              <section className="bg-light-surface-container-lowest border border-light-outline-variant rounded-md p-lg flex flex-col gap-md shadow-sm">
+                <div className="flex items-center justify-between gap-md flex-wrap">
+                  <div>
+                    <h2 className="font-headline text-headline-sm text-light-on-surface m-0 font-semibold">
+                      Attached Documents &amp; Clearances
+                    </h2>
+                    <p className="font-body text-body-sm text-light-on-surface-variant m-0 mt-0.5">
+                      Submitted documentation for lecturer coordinator endorsement and compliance clearance.
+                    </p>
+                  </div>
+                  <span className="font-mono text-mono-sm font-semibold text-light-primary bg-light-primary-container/20 px-sm py-xs rounded-full">
+                    {getProposalDocuments(proposal).length} Document{getProposalDocuments(proposal).length !== 1 ? 's' : ''}
+                  </span>
+                </div>
+
+                <div className="flex flex-col gap-sm">
+                  {getProposalDocuments(proposal).map((doc) => (
+                    <div
+                      key={doc.id}
+                      className="p-md rounded-lg bg-light-surface-container-low/40 border border-light-outline-variant flex flex-col sm:flex-row sm:items-center justify-between gap-md"
+                    >
+                      <div className="flex items-start gap-md min-w-0">
+                        <div className="w-10 h-10 rounded-lg bg-light-primary/10 text-light-primary flex items-center justify-center shrink-0">
+                          <span className="material-symbols-outlined text-[22px]">
+                            {doc.type === 'clearance'
+                              ? 'verified_user'
+                              : doc.type === 'flyer'
+                              ? 'image'
+                              : 'picture_as_pdf'}
+                          </span>
+                        </div>
+                        <div className="flex flex-col min-w-0">
+                          <div className="flex items-center gap-xs flex-wrap">
+                            <span className="font-title text-title-md font-semibold text-light-on-surface truncate">
+                              {doc.name}
+                            </span>
+                            <span
+                              className={`font-label text-label-xs px-xs py-0.5 rounded-full ${
+                                doc.verified
+                                  ? 'bg-success-container text-on-success-container'
+                                  : 'bg-info-container text-on-info-container'
+                              }`}
+                            >
+                              {doc.verified ? 'Verified' : 'Submitted'}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-xs text-label-sm text-light-on-surface-variant flex-wrap mt-0.5">
+                            <span>{doc.category_label || doc.type.toUpperCase()}</span>
+                            <span>·</span>
+                            <span>{doc.size || '350 KB'}</span>
+                            <span>·</span>
+                            <span>{doc.uploaded_at}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => setActiveDocument(doc)}
+                        className="inline-flex items-center gap-xs px-md py-xs rounded bg-light-primary text-light-on-primary hover:bg-light-primary-container font-label text-label-sm font-semibold cursor-pointer border-0 shrink-0 self-end sm:self-auto"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">visibility</span>
+                        <span>View Document</span>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
             {/* Immutable Revision History (SRS 3-Entity Versioning) */}
             <section className="bg-light-surface-container-lowest border border-light-outline-variant rounded-md p-lg flex flex-col gap-md shadow-sm">
               <h2 className="font-headline text-headline-sm text-light-on-surface font-semibold">
@@ -531,6 +606,20 @@ export const ProposalDetails: React.FC = () => {
           </aside>
         </div>
       </main>
+
+      {proposal && (
+        <DocumentViewerModal
+          isOpen={!!activeDocument}
+          onClose={() => setActiveDocument(null)}
+          document={activeDocument}
+          proposalCode={proposal.code}
+          proposalTitle={proposal.title}
+          clubName={proposal.club_name}
+          budget={proposal.budget}
+          venue={proposal.venue}
+          eventDate={proposal.event_date}
+        />
+      )}
     </OrganizerLayout>
   );
 };
