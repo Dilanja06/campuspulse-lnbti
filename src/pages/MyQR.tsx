@@ -66,7 +66,7 @@ export const MyQR: React.FC = () => {
       <main className="p-lg md:p-xl max-w-[900px] w-full mx-auto flex flex-col gap-xl">
         <header className="flex flex-col gap-xs text-center">
           <h1 className="font-headline text-headline-lg text-light-on-surface font-semibold m-0">
-            Dynamic Student Check-In QR Pass (S11)
+            Dynamic Student Check-In QR Pass
           </h1>
           <p className="font-body text-body-md text-light-on-surface-variant m-0">
             Cryptographically time-boxed entry token scanned at venue gates by authorized organizers.

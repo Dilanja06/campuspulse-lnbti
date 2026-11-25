@@ -103,7 +103,7 @@ export const AdminGovernance: React.FC = () => {
       <main className="p-lg md:p-xl max-w-[1400px] w-full mx-auto flex flex-col gap-xl">
         <header className="flex flex-col gap-xs">
           <h1 className="font-headline text-headline-lg text-light-on-surface font-semibold m-0">
-            Student Roster, Moderation &amp; System Policies (A02 · A09 · A11–A13)
+            Student Roster, Moderation &amp; System Policies
           </h1>
           <p className="font-body text-body-md text-light-on-surface-variant m-0">
             Manage verified university student roster imports, club content moderation, badge revocation, global timeouts, and support requests.

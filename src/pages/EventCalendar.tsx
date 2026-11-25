@@ -77,7 +77,7 @@ export const EventCalendar: React.FC = () => {
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-md">
           <div className="flex flex-col gap-xs">
             <h1 className="font-headline text-headline-lg text-light-on-surface font-semibold m-0">
-              Event Calendar (S06)
+              Event Calendar
             </h1>
             <p className="font-body text-body-md text-light-on-surface-variant m-0">
               Schedule overview across campus clubs and societies. Select any date to view its agenda.

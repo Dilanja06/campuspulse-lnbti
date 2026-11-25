@@ -63,7 +63,7 @@ export const MyRegistrations: React.FC = () => {
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-md">
           <div className="flex flex-col gap-xs">
             <h1 className="font-headline text-headline-lg text-light-on-surface font-semibold m-0">
-              My Registrations &amp; Passes (S08)
+              My Registrations &amp; Passes
             </h1>
             <p className="font-body text-body-md text-light-on-surface-variant m-0">
               Manage active seat holds, payment obligations, dynamic QR entry tickets, and cancellation refunds.

@@ -55,7 +55,7 @@ export const AdminDashboard: React.FC = () => {
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-md">
           <div className="flex flex-col gap-xs">
             <h1 className="font-headline text-headline-lg text-light-on-surface font-semibold m-0">
-              Central System Administration (A01)
+              Central System Administration
             </h1>
             <p className="font-body text-body-md text-light-on-surface-variant m-0">
               Signed in as {user?.name || 'Amila Dissanayake'} ({user?.staff_id || 'STAFF/ADM/0003'}) · Strict infrastructure, roster, and RBAC separation-of-powers governance.

@@ -31,7 +31,7 @@ export const RefundStatus: React.FC = () => {
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-md">
           <div className="flex flex-col gap-xs">
             <h1 className="font-headline text-headline-lg text-light-on-surface font-semibold m-0">
-              Refund Status &amp; Claims (S12)
+              Refund Status &amp; Claims
             </h1>
             <p className="font-body text-body-md text-light-on-surface-variant m-0">
               Real-time status tracking for cancelled ticket reimbursements and manual refund requests.

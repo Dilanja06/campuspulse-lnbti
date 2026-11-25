@@ -54,7 +54,7 @@ export const OrganizerRefunds: React.FC = () => {
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-md">
           <div className="flex flex-col gap-xs">
             <h1 className="font-headline text-headline-lg text-light-on-surface font-semibold">
-              Refund Claims &amp; Financial Settlement (O14)
+              Refund Claims &amp; Financial Settlement
             </h1>
             <p className="font-body text-body-md text-light-on-surface-variant">
               Review student refund requests, approve eligible cancellation claims, and record settlement completions.

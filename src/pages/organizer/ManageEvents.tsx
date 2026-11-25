@@ -58,7 +58,7 @@ export const ManageEvents: React.FC = () => {
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-md">
           <div className="flex flex-col gap-xs">
             <h1 className="font-headline text-headline-lg text-light-on-surface font-semibold">
-              Manage Published Events (O06)
+              Manage Published Events
             </h1>
             <p className="font-body text-body-md text-light-on-surface-variant">
               Control capacity, registration availability, check-in scanners, and official event cancellations.
@@ -176,7 +176,7 @@ export const ManageEvents: React.FC = () => {
                             to={`/organizer/events/${ev.id}/cancel`}
                             className="px-sm py-xs rounded bg-light-error-container text-light-on-error-container font-label text-label-sm font-semibold no-underline hover:opacity-90"
                           >
-                            Cancel (O15)
+                            Cancel Event
                           </Link>
                         </>
                       )}

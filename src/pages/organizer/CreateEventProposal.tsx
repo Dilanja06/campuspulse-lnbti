@@ -140,7 +140,7 @@ export const CreateEventProposal: React.FC = () => {
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-md">
           <div className="flex flex-col gap-xs">
             <h1 className="font-headline text-headline-lg text-light-on-surface font-semibold">
-              Create Event Proposal (O03)
+              Create Event Proposal
             </h1>
             <p className="font-body text-body-md text-light-on-surface-variant">
               Proposals enter Committee Quorum &amp; Coordinator Review prior to Higher Authority sign-off. Events only publish after full approval.

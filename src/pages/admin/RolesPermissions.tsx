@@ -68,7 +68,7 @@ export const RolesPermissions: React.FC = () => {
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-md">
           <div className="flex flex-col gap-xs">
             <h1 className="font-headline text-headline-lg text-light-on-surface font-semibold m-0">
-              RBAC Roles &amp; Institutional Scopes (A05)
+              RBAC Roles &amp; Institutional Scopes
             </h1>
             <p className="font-body text-body-md text-light-on-surface-variant m-0">
               Enforce Separation of Powers by assigning Coordinator, Authority, Verification, and Officer scopes without overlapping privileges.

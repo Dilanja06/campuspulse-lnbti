@@ -35,7 +35,7 @@ export const MyMemberships: React.FC = () => {
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-md">
           <div className="flex flex-col gap-xs">
             <h1 className="font-headline text-headline-lg text-light-on-surface font-semibold m-0">
-              My Club Memberships (S13)
+              My Club Memberships
             </h1>
             <p className="font-body text-body-md text-light-on-surface-variant m-0">
               Track active society memberships, pending applications, and followed organizations.

@@ -79,7 +79,7 @@ export const EventCancellation: React.FC = () => {
             <span>Back to Manage Events</span>
           </Link>
           <h1 className="font-headline text-headline-lg text-light-error font-semibold mt-xs">
-            Cancel Published Event (O15)
+            Cancel Published Event
           </h1>
           <p className="font-body text-body-md text-light-on-surface-variant">
             Cancelling a live Event Edition halts all new registrations, updates active tickets to Cancelled, and automatically initiates refunds for eligible paid participants.

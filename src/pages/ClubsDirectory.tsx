@@ -60,7 +60,7 @@ export const ClubsDirectory: React.FC = () => {
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-md">
           <div className="flex flex-col gap-xs">
             <h1 className="font-headline text-headline-lg text-light-on-surface font-semibold m-0">
-              Clubs &amp; Societies Directory (S14)
+              Clubs &amp; Societies Directory
             </h1>
             <p className="font-body text-body-md text-light-on-surface-variant m-0">
               Explore officially chartered student societies, executive committees, and membership opportunities.

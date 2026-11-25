@@ -70,7 +70,7 @@ export const AttendanceScanner: React.FC = () => {
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-md">
           <div className="flex flex-col gap-xs">
             <h1 className="font-headline text-headline-lg text-light-on-surface font-semibold">
-              QR Attendance Scanner &amp; Check-In Logs (O11 · M05–M07)
+              QR Attendance Scanner &amp; Check-In Logs
             </h1>
             <p className="font-body text-body-md text-light-on-surface-variant">
               Strict cryptographic check-in gate using dynamic 30s student QR tokens and authorized scanner devices. Manual registration check-in bypass is disabled.
@@ -156,7 +156,7 @@ export const AttendanceScanner: React.FC = () => {
             {isDemoModeEnabled && (
               <div className="pt-sm border-t border-light-outline-variant flex flex-col gap-xs">
                 <span className="font-label text-label-sm text-light-on-surface-variant font-semibold uppercase tracking-wider">
-                  Sandbox Scan Outcome Simulators (M06 Validation)
+                  Sandbox Scan Outcome Simulators
                 </span>
                 <div className="flex flex-wrap gap-xs">
                   <button

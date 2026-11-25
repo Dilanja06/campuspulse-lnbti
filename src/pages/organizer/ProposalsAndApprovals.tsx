@@ -64,7 +64,7 @@ export const ProposalsAndApprovals: React.FC = () => {
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-md">
           <div className="flex flex-col gap-xs">
             <h1 className="font-headline text-headline-lg text-light-on-surface font-semibold">
-              Event Proposals &amp; Approvals (O02 · O04)
+              Event Proposals &amp; Approvals
             </h1>
             <p className="font-body text-body-md text-light-on-surface-variant">
               Track Committee Quorum, Coordinator Endorsement, Higher Authority sign-offs, revisions, and publication readiness.
@@ -177,7 +177,7 @@ export const ProposalsAndApprovals: React.FC = () => {
                               to={`/organizer/proposals/${prop.id}`}
                               className="px-sm py-xs rounded border border-light-outline-variant bg-light-surface-container-lowest text-light-on-surface font-label text-label-md font-medium no-underline hover:bg-light-surface-container-low"
                             >
-                              {prop.status === 'Revision Requested' ? 'Revise (O05)' : 'Details (O04)'}
+                              {prop.status === 'Revision Requested' ? 'Revise' : 'Details'}
                             </Link>
                             {isPublishable && (
                               <button

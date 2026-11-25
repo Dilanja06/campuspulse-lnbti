@@ -129,7 +129,7 @@ export const Register: React.FC = () => {
             <span>Back to {event.title}</span>
           </Link>
           <h1 className="font-headline text-headline-lg text-light-on-surface font-semibold m-0">
-            Event Registration (S07)
+            Event Registration
           </h1>
           <p className="font-body text-body-md text-light-on-surface-variant m-0">
             Atomic seat reservation &amp; participant profile confirmation.

@@ -79,7 +79,7 @@ export const EventRegistrations: React.FC = () => {
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-md">
           <div className="flex flex-col gap-xs">
             <h1 className="font-headline text-headline-lg text-light-on-surface font-semibold">
-              Event Registrations &amp; Participant Queue (O09 · O10)
+              Event Registrations &amp; Participant Queue
             </h1>
             <p className="font-body text-body-md text-light-on-surface-variant">
               Approve manual-approval registrations, export attendee rosters, and enforce live QR gate check-in without manual check-in overrides.

@@ -96,7 +96,7 @@ export const PaymentAndReceipt: React.FC = () => {
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-md">
           <div className="flex flex-col gap-xs">
             <h1 className="font-headline text-headline-lg text-light-on-surface font-semibold m-0">
-              Payments &amp; Official Receipts (S09 · S10)
+              Payments &amp; Official Receipts
             </h1>
             <p className="font-body text-body-md text-light-on-surface-variant m-0">
               Settle held registration fees via PayHere University Gateway or download receipts and file refunds.

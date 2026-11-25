@@ -55,7 +55,7 @@ export const EventExplorer: React.FC = () => {
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-md">
           <div className="flex flex-col gap-xs">
             <h1 className="font-headline text-headline-lg text-light-on-surface font-semibold">
-              Explore Campus Events (S05)
+              Explore Campus Events
             </h1>
             <p className="font-body text-body-md text-light-on-surface-variant">
               Browse authority-approved student club events, workshops, tournaments, and community initiatives.

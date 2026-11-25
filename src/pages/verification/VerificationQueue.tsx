@@ -56,7 +56,7 @@ export const VerificationQueue: React.FC = () => {
       <main className="p-lg md:p-xl max-w-[1400px] w-full mx-auto flex flex-col gap-xl">
         <header className="flex flex-col gap-xs">
           <h1 className="font-headline text-headline-lg text-light-on-surface font-semibold m-0">
-            {isHistoryRoute ? 'External Verification Audit History (V03)' : 'External Evidence Verification Queue (V01 · V02)'}
+            {isHistoryRoute ? 'External Verification Audit History' : 'External Evidence Verification Queue'}
           </h1>
           <p className="font-body text-body-md text-light-on-surface-variant m-0">
             Verify third-party sponsor permits, ministry letters, and municipal clearances attached to club event proposals.
@@ -132,7 +132,7 @@ export const VerificationQueue: React.FC = () => {
           {/* Inspection Drawer / Panel (5 cols) */}
           <aside className="lg:col-span-5 bg-light-surface-container-lowest border border-light-outline-variant rounded-md p-lg flex flex-col gap-md shadow-sm">
             <h2 className="font-headline text-headline-sm text-light-on-surface font-semibold m-0">
-              Evidence Inspection Panel (V02)
+              Evidence Inspection Panel
             </h2>
 
             {!selected ? (

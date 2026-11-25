@@ -88,7 +88,7 @@ export const ClubMembers: React.FC = () => {
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-md">
           <div className="flex flex-col gap-xs">
             <h1 className="font-headline text-headline-lg text-light-on-surface font-semibold">
-              Club Membership &amp; Posts (O12 · O13)
+              Club Membership &amp; Posts
             </h1>
             <p className="font-body text-body-md text-light-on-surface-variant">
               Approve membership applications, manage club profile descriptions, and publish announcements.
@@ -213,7 +213,7 @@ export const ClubMembers: React.FC = () => {
               className="bg-light-surface-container-lowest border border-light-outline-variant rounded-md p-lg flex flex-col gap-md shadow-sm"
             >
               <h2 className="font-headline text-headline-sm text-light-on-surface font-semibold m-0">
-                Publish Announcement / Post (O13)
+                Publish Announcement / Post
               </h2>
               <input
                 type="text"

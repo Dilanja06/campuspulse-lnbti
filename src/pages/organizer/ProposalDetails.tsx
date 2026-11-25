@@ -188,7 +188,7 @@ export const ProposalDetails: React.FC = () => {
                 className="inline-flex items-center gap-xs px-md py-sm rounded bg-warning-container text-on-warning-container font-label text-label-md font-semibold cursor-pointer border-0"
               >
                 <span className="material-symbols-outlined text-[18px]">edit_note</span>
-                <span>{editMode ? 'Cancel Editing' : 'Revise & Resubmit (O05)'}</span>
+                <span>{editMode ? 'Cancel Editing' : 'Revise & Resubmit'}</span>
               </button>
             )}
 

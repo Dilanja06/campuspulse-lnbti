@@ -76,7 +76,7 @@ export const MyProfile: React.FC = () => {
       <main className="p-lg md:p-xl max-w-[1200px] w-full mx-auto flex flex-col gap-xl">
         <header className="flex flex-col gap-xs">
           <h1 className="font-headline text-headline-lg text-light-on-surface font-semibold m-0">
-            Student Profile, Device &amp; Privacy Settings (S17)
+            Student Profile, Device &amp; Privacy Settings
           </h1>
           <p className="font-body text-body-md text-light-on-surface-variant m-0">
             Manage account details, bound QR device transfers, notification channels, and privacy/support requests.

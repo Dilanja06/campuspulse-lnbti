@@ -81,7 +81,7 @@ export const MerchantsAndDevices: React.FC = () => {
       <main className="p-lg md:p-xl max-w-[1400px] w-full mx-auto flex flex-col gap-xl">
         <header className="flex flex-col gap-xs">
           <h1 className="font-headline text-headline-lg text-light-on-surface font-semibold m-0">
-            Payment Merchants &amp; QR Gate Devices (A07 · A08)
+            Payment Merchants &amp; QR Gate Devices
           </h1>
           <p className="font-body text-body-md text-light-on-surface-variant m-0">
             Configure institutional PayHere merchant gateways and manage hardware QR gate scanner authorizations.

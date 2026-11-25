@@ -22,7 +22,7 @@ export const MyBadges: React.FC = () => {
       <main className="p-lg md:p-xl max-w-[1300px] w-full mx-auto flex flex-col gap-xl">
         <header className="flex flex-col gap-xs">
           <h1 className="font-headline text-headline-lg text-light-on-surface font-semibold m-0">
-            Verified Badges &amp; Credentials (S16)
+            Verified Badges &amp; Credentials
           </h1>
           <p className="font-body text-body-md text-light-on-surface-variant m-0">
             Cryptographically verifiable co-curricular badges earned via club memberships and QR-verified event attendance.
