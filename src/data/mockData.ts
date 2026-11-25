@@ -235,7 +235,7 @@ export const initialEvents: EventItem[] = [
     registered: 112,
     eligibility: 'First Year Students',
     status: 'closed',
-    image_url: 'https://images.unsplash.com/photo-1526676037777-05a232554f77?auto=format&fit=crop&w=800&q=80',
+    image_url: 'https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=1200&q=80',
     description: 'Orientation to campus athletics facilities, intramural leagues, and gym memberships.',
   }
 ];

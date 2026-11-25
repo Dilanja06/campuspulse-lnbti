@@ -98,6 +98,9 @@ export const ManageEvents: React.FC = () => {
                       src={getEventCoverImage(ev)}
                       alt={ev.title}
                       className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1523580494863-6f3031224c94?auto=format&fit=crop&w=1200&q=80';
+                      }}
                     />
                     <span
                       className={`absolute top-3 right-3 px-sm py-0.5 rounded-full font-label text-label-sm font-semibold ${

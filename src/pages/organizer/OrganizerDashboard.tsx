@@ -145,6 +145,9 @@ export const OrganizerDashboard: React.FC = () => {
                         src={getEventCoverImage(ev)}
                         alt={ev.title}
                         className="w-14 h-14 rounded object-cover shrink-0 bg-slate-800"
+                        onError={(e) => {
+                          (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1523580494863-6f3031224c94?auto=format&fit=crop&w=1200&q=80';
+                        }}
                       />
                       <div className="flex flex-col">
                         <span className="font-title text-title-md text-light-on-surface font-semibold">

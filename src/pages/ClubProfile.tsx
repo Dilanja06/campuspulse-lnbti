@@ -183,6 +183,9 @@ export const ClubProfile: React.FC = () => {
                       src={getEventCoverImage(ev)}
                       alt={ev.title}
                       className="w-full h-32 object-cover"
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1523580494863-6f3031224c94?auto=format&fit=crop&w=1200&q=80';
+                      }}
                     />
                     <div className="p-md">
                       <h3 className="font-title text-title-md text-light-on-surface font-semibold m-0">{ev.title}</h3>

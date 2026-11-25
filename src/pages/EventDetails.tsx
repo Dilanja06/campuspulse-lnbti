@@ -5,7 +5,7 @@ import { StatusChip } from '../components/StatusChip';
 import { useAuth } from '../context/AuthContext';
 import { dataService } from '../services/dataService';
 import { EventItem, RegistrationItem, ClubPostItem } from '../types';
-import { getEventCoverImage } from '../utils/eventImages';
+import { getEventCoverImage, getEventFlyerImage } from '../utils/eventImages';
 
 export const EventDetails: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -100,6 +100,9 @@ export const EventDetails: React.FC = () => {
               src={getEventCoverImage(event)}
               alt={event.title}
               className="w-full h-full object-cover"
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1523580494863-6f3031224c94?auto=format&fit=crop&w=1200&q=80';
+              }}
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent flex flex-col justify-end p-lg md:p-xl text-white">
               <div className="flex items-center gap-sm flex-wrap mb-xs">
@@ -331,6 +334,28 @@ export const EventDetails: React.FC = () => {
                   <strong>Refund Policy:</strong> {event.refund_policy}
                 </div>
               )}
+              <div className="pt-sm border-t border-light-outline-variant flex flex-col gap-xs">
+                <span className="font-label text-label-sm text-light-on-surface-variant font-semibold">Official Event Flyer</span>
+                <a
+                  href={getEventFlyerImage(event)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block rounded overflow-hidden border border-light-outline-variant hover:opacity-90 transition-opacity bg-slate-900 group relative"
+                >
+                  <img
+                    src={getEventFlyerImage(event)}
+                    alt={`${event.title} Flyer`}
+                    className="w-full h-auto object-cover max-h-56"
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).src = getEventCoverImage(event);
+                    }}
+                  />
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-label-sm font-semibold gap-xs">
+                    <span className="material-symbols-outlined text-[18px]">open_in_new</span>
+                    <span>View Full Flyer</span>
+                  </div>
+                </a>
+              </div>
             </aside>
           </div>
         </section>

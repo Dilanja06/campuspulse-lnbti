@@ -122,6 +122,9 @@ export const MyRegistrations: React.FC = () => {
                       src={getEventCoverImage({ id: reg.event_id, image_url: reg.image_url, title: reg.event_title })}
                       alt={reg.event_title}
                       className="w-20 h-20 rounded object-cover shrink-0 bg-slate-800 hidden sm:block"
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1523580494863-6f3031224c94?auto=format&fit=crop&w=1200&q=80';
+                      }}
                     />
                     <div className="flex flex-col gap-xs">
                       <div className="flex items-center gap-sm flex-wrap">

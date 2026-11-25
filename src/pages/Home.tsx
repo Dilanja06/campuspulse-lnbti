@@ -180,6 +180,9 @@ export const Home: React.FC = () => {
                           src={getEventCoverImage(ev)}
                           alt={ev.title}
                           className="w-full h-full object-cover"
+                          onError={(e) => {
+                            (e.currentTarget as HTMLImageElement).src = 'https://images.unsplash.com/photo-1523580494863-6f3031224c94?auto=format&fit=crop&w=1200&q=80';
+                          }}
                         />
                         {userReg && (
                           <div className="absolute top-2 right-2">
