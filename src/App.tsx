@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth, getRoleHomeRoute } from './context/AuthContext';
 import { DatabaseStatusProvider } from './context/DatabaseStatusContext';
+import { ThemeProvider } from './context/ThemeContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 
 // Auth Pages
@@ -81,8 +82,9 @@ const LandingRedirect: React.FC = () => {
 
 export function App() {
   return (
-    <DatabaseStatusProvider>
-      <AuthProvider>
+    <ThemeProvider>
+      <DatabaseStatusProvider>
+        <AuthProvider>
         <Router>
           <Routes>
             {/* Public / Auth Routes */}
@@ -502,8 +504,9 @@ export function App() {
             <Route path="*" element={<LandingRedirect />} />
           </Routes>
         </Router>
-      </AuthProvider>
-    </DatabaseStatusProvider>
+        </AuthProvider>
+      </DatabaseStatusProvider>
+    </ThemeProvider>
   );
 }
 
