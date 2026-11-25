@@ -1,17 +1,29 @@
 import React, { useEffect, useState } from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { dataService } from '../services/dataService';
 
 export const VerificationSidebar: React.FC = () => {
   const { user } = useAuth();
+  const location = useLocation();
   const [pendingCount, setPendingCount] = useState(0);
 
   useEffect(() => {
-    dataService.getExternalVerifications().then((items) => {
-      setPendingCount(items.filter((v) => v.status === 'Pending Verification').length);
-    });
-  }, []);
+    let active = true;
+    const loadPending = () => {
+      dataService.getExternalVerifications().then((items) => {
+        if (active) {
+          setPendingCount(items.filter((v) => v.status === 'Pending Verification').length);
+        }
+      });
+    };
+    loadPending();
+    const unsub = dataService.subscribe(loadPending);
+    return () => {
+      active = false;
+      unsub();
+    };
+  }, [location.pathname]);
 
   const navItems = [
     { label: 'Evidence Queue', to: '/verification', icon: 'verified', exact: true, badge: pendingCount > 0 ? pendingCount : undefined },

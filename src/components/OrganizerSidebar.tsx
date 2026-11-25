@@ -1,38 +1,54 @@
 import React, { useEffect, useState } from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { dataService } from '../services/dataService';
 
 export const OrganizerSidebar: React.FC = () => {
   const { user } = useAuth();
+  const location = useLocation();
   const [pendingProposalsCount, setPendingProposalsCount] = useState(0);
   const [pendingRegistrationsCount, setPendingRegistrationsCount] = useState(0);
+  const [pendingRefundsCount, setPendingRefundsCount] = useState(0);
+  const [pendingMembersCount, setPendingMembersCount] = useState(0);
 
   useEffect(() => {
+    let active = true;
     const fetchCounts = async () => {
       try {
-        const [proposals, registrations] = await Promise.all([
+        const [proposals, registrations, refunds, members] = await Promise.all([
           dataService.getProposals(),
           dataService.getRegistrations(),
+          dataService.getRefundRequests(),
+          dataService.getClubMembers(),
         ]);
-        const inReview = proposals.filter(
+        if (!active) return;
+        const actionableProposals = proposals.filter(
           (p) =>
-            p.status === 'Higher Authority' ||
             p.status === 'Revision Requested' ||
+            p.status === 'Approved' ||
+            p.status === 'Higher Authority' ||
             p.status === 'In Review' ||
             p.status === 'Committee Review' ||
             p.status === 'Pending Review'
         ).length;
-        setPendingProposalsCount(inReview);
+        setPendingProposalsCount(actionableProposals);
 
-        const pendingRegs = registrations.filter((r) => r.status === 'pending').length;
-        setPendingRegistrationsCount(pendingRegs);
+        setPendingRegistrationsCount(registrations.filter((r) => r.status === 'pending').length);
+        setPendingRefundsCount(
+          refunds.filter((r) => r.status === 'Requested' || r.status === 'Under Review').length
+        );
+        setPendingMembersCount(members.filter((m) => m.status === 'Pending').length);
       } catch (err) {
         console.warn('Sidebar counts error:', err);
       }
     };
     fetchCounts();
-  }, []);
+    const unsub = dataService.subscribe(fetchCounts);
+    return () => {
+      active = false;
+      unsub();
+    };
+  }, [location.pathname]);
 
   const navItems = [
     {
@@ -67,11 +83,13 @@ export const OrganizerSidebar: React.FC = () => {
       label: 'Refunds & Finance',
       to: '/organizer/refunds',
       icon: 'payments',
+      badge: pendingRefundsCount > 0 ? pendingRefundsCount : undefined,
     },
     {
       label: 'Club & Members',
       to: '/organizer/members',
       icon: 'groups',
+      badge: pendingMembersCount > 0 ? pendingMembersCount : undefined,
     },
   ];
 

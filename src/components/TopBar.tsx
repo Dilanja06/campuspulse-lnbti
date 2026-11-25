@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { getActiveCommitteeMember } from '../data/mockData';
 import { useAuth, UserRole, getRoleHomeRoute } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { dataService } from '../services/dataService';
 import { DatabaseStatusBadge } from './DatabaseStatusBadge';
 
 interface TopBarProps {
@@ -20,11 +21,32 @@ const ROLE_LABELS: Record<UserRole, string> = {
   admin: 'Central Administrator',
 };
 
-export const TopBar: React.FC<TopBarProps> = ({ unreadNotifications = true, onMenuClick }) => {
+export const TopBar: React.FC<TopBarProps> = ({ onMenuClick }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { user, role, signOut, switchRole } = useAuth();
   const { isDark, toggleTheme } = useTheme();
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    let active = true;
+    const loadUnread = async () => {
+      try {
+        const items = await dataService.getNotifications(user?.id);
+        if (active) {
+          setUnreadCount(items.filter((n) => !n.read).length);
+        }
+      } catch (err) {
+        console.warn('TopBar notification count error:', err);
+      }
+    };
+    loadUnread();
+    const unsub = dataService.subscribe(loadUnread);
+    return () => {
+      active = false;
+      unsub();
+    };
+  }, [user?.id, location.pathname]);
 
   const isCommittee = location.pathname.startsWith('/committee');
   const isStaffWorkspace =
@@ -134,18 +156,20 @@ export const TopBar: React.FC<TopBarProps> = ({ unreadNotifications = true, onMe
 
         <Link
           to="/notifications"
-          aria-label="Open notifications"
+          aria-label={unreadCount > 0 ? `Open notifications (${unreadCount} unread)` : 'Open notifications'}
           className="relative inline-flex items-center justify-center w-[40px] h-[40px] rounded bg-light-surface-container-lowest text-light-on-surface-variant border border-light-outline-variant hover:bg-light-surface-container-low hover:text-light-on-surface transition-colors duration-state-change no-underline"
         >
           <span className="material-symbols-outlined text-[20px]" aria-hidden="true">
             notifications
           </span>
-          {unreadNotifications && (
+          {unreadCount > 0 && (
             <span
               role="status"
-              aria-label="Unread notifications"
-              className="absolute top-2 right-2 w-[8px] h-[8px] rounded-full bg-light-secondary ring-2 ring-light-surface-container-lowest"
-            />
+              aria-label={`${unreadCount} unread notifications`}
+              className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-light-error text-white text-[10px] font-mono font-bold flex items-center justify-center ring-2 ring-light-surface-container-lowest tabular-nums"
+            >
+              {unreadCount > 9 ? '9+' : unreadCount}
+            </span>
           )}
         </Link>
 

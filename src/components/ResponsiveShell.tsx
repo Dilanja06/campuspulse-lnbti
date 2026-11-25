@@ -1,5 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { TopBar } from './TopBar';
+import { useAuth } from '../context/AuthContext';
+import { dataService } from '../services/dataService';
 
 interface ResponsiveShellProps {
   sidebar: React.ReactNode;
@@ -17,6 +20,13 @@ export const ResponsiveShell: React.FC<ResponsiveShellProps> = ({
   footer,
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const location = useLocation();
+  const { user } = useAuth();
+
+  // Reduce unread notification count automatically when user reviews each section
+  useEffect(() => {
+    dataService.markNotificationsReadForRoute(location.pathname, user?.id);
+  }, [location.pathname, user?.id]);
 
   return (
     <div className="min-h-screen flex bg-light-surface text-light-on-surface font-body antialiased">

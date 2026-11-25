@@ -1,24 +1,42 @@
 import React, { useEffect, useState } from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { dataService } from '../services/dataService';
 
 export const CoordinatorSidebar: React.FC = () => {
   const { user } = useAuth();
+  const location = useLocation();
   const [pendingReviewCount, setPendingReviewCount] = useState(0);
 
   useEffect(() => {
+    let active = true;
     const fetchCounts = async () => {
       try {
         const proposals = await dataService.getProposals();
-        const pending = proposals.filter((p) => p.status === 'Pending Review' || p.stage === 2).length;
+        if (!active) return;
+        const pending = proposals.filter(
+          (p) =>
+            p.status === 'Pending Review' ||
+            (p.stage === 2 &&
+              p.status !== 'Revision Requested' &&
+              p.status !== 'Rejected' &&
+              p.status !== 'Higher Authority' &&
+              p.status !== 'Endorsed' &&
+              p.status !== 'Approved' &&
+              p.status !== 'Approved & Published')
+        ).length;
         setPendingReviewCount(pending);
       } catch (err) {
         console.warn('CoordinatorSidebar count error:', err);
       }
     };
     fetchCounts();
-  }, []);
+    const unsub = dataService.subscribe(fetchCounts);
+    return () => {
+      active = false;
+      unsub();
+    };
+  }, [location.pathname]);
 
   const navItems = [
     {

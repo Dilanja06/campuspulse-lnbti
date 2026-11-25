@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { dataService } from '../services/dataService';
 import { CommitteeMemberProfile } from '../types';
 import { isDemoModeEnabled } from '../context/AuthContext';
@@ -10,29 +10,38 @@ interface CommitteeSidebarProps {
 
 export const CommitteeSidebar: React.FC<CommitteeSidebarProps> = ({ onRoleChanged }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [members, setMembers] = useState<CommitteeMemberProfile[]>([]);
   const [currentMember, setCurrentMember] = useState<CommitteeMemberProfile>(
     dataService.getCurrentCommitteeMember()
   );
-  const [pendingCount, setPendingCount] = useState<number>(2);
+  const [pendingCount, setPendingCount] = useState<number>(0);
 
   useEffect(() => {
+    let active = true;
     const loadData = async () => {
       const mems = await dataService.getCommitteeMembers();
+      if (!active) return;
       setMembers(mems);
-      const active = dataService.getCurrentCommitteeMember();
-      setCurrentMember(active);
+      const activeMember = dataService.getCurrentCommitteeMember();
+      setCurrentMember(activeMember);
       const actions = await dataService.getCommitteeActions();
+      if (!active) return;
       const pending = actions.filter((a) => {
         const mySeat = a.seats.find(
-          (s) => s.role.toLowerCase() === active.role.toLowerCase()
+          (s) => s.role.toLowerCase() === activeMember.role.toLowerCase()
         );
-        return mySeat && mySeat.status === 'Pending';
+        return mySeat && mySeat.status === 'Pending' && a.my_status !== 'Rejected';
       }).length;
       setPendingCount(pending);
     };
     loadData();
-  }, []);
+    const unsub = dataService.subscribe(loadData);
+    return () => {
+      active = false;
+      unsub();
+    };
+  }, [location.pathname]);
 
   const handleRoleSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedId = e.target.value;

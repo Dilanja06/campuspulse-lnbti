@@ -1,6 +1,7 @@
-import React from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { dataService } from '../services/dataService';
 
 interface SidebarProps {
   registrationCount?: number;
@@ -8,12 +9,44 @@ interface SidebarProps {
 
 export const Sidebar: React.FC<SidebarProps> = ({ registrationCount }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, signOut } = useAuth();
+  const [activeRegCount, setActiveRegCount] = useState(0);
+  const [pendingPayCount, setPendingPayCount] = useState(0);
+
+  useEffect(() => {
+    let active = true;
+    const loadCounts = async () => {
+      try {
+        const [regs, txs] = await Promise.all([
+          dataService.getRegistrations({ userId: user?.id, userEmail: user?.email }),
+          dataService.getPayments(user?.id),
+        ]);
+        if (!active) return;
+        setActiveRegCount(
+          regs.filter((r) => r.status !== 'cancelled' && r.status !== 'rejected').length
+        );
+        const holdRegs = regs.filter((r) => r.status === 'payment_pending').length;
+        const pendingTxs = txs.filter((t) => t.status === 'Pending').length;
+        setPendingPayCount(Math.max(holdRegs, pendingTxs));
+      } catch (err) {
+        console.warn('Sidebar count error:', err);
+      }
+    };
+    loadCounts();
+    const unsub = dataService.subscribe(loadCounts);
+    return () => {
+      active = false;
+      unsub();
+    };
+  }, [user?.id, user?.email, location.pathname]);
 
   const handleSignOut = async () => {
     await signOut();
     navigate('/login');
   };
+
+  const resolvedRegBadge = registrationCount ?? activeRegCount;
 
   const navItems = [
     { to: '/home', label: 'Home', icon: 'home' },
@@ -23,10 +56,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ registrationCount }) => {
       to: '/my-registrations',
       label: 'My Registrations',
       icon: 'confirmation_number',
-      badge: registrationCount,
+      badge: resolvedRegBadge,
     },
     { to: '/clubs', label: 'Clubs', icon: 'groups' },
-    { to: '/payment', label: 'Payments', icon: 'receipt_long' },
+    {
+      to: '/payment',
+      label: 'Payments',
+      icon: 'receipt_long',
+      badge: pendingPayCount > 0 ? pendingPayCount : undefined,
+    },
     { to: '/refund-status', label: 'Refunds', icon: 'currency_exchange' },
     { to: '/my-badges', label: 'Badges', icon: 'workspace_premium' },
     { to: '/my-profile', label: 'Profile', icon: 'person' },

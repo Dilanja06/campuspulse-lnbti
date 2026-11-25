@@ -1,22 +1,36 @@
 import React, { useState, useEffect } from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { dataService } from '../services/dataService';
 
 export const AuthoritySidebar: React.FC = () => {
   const { user } = useAuth();
+  const location = useLocation();
   const [pendingCount, setPendingCount] = useState<number>(0);
 
   useEffect(() => {
+    let active = true;
     const fetchCount = async () => {
       const proposals = await dataService.getProposals();
+      if (!active) return;
       const count = proposals.filter(
-        (p) => p.stage === 3 || p.status === 'Higher Authority'
+        (p) =>
+          p.status === 'Higher Authority' ||
+          (p.stage === 3 &&
+            p.status !== 'Revision Requested' &&
+            p.status !== 'Rejected' &&
+            p.status !== 'Approved' &&
+            p.status !== 'Approved & Published')
       ).length;
       setPendingCount(count);
     };
     fetchCount();
-  }, []);
+    const unsub = dataService.subscribe(fetchCount);
+    return () => {
+      active = false;
+      unsub();
+    };
+  }, [location.pathname]);
 
   const navItems = [
     {

@@ -218,7 +218,17 @@ export function App() {
             <Route
               path="/notifications"
               element={
-                <ProtectedRoute allowedRoles={['student', 'organizer', 'committee']}>
+                <ProtectedRoute
+                  allowedRoles={[
+                    'student',
+                    'organizer',
+                    'committee',
+                    'coordinator',
+                    'authority',
+                    'verification',
+                    'admin',
+                  ]}
+                >
                   <Notifications />
                 </ProtectedRoute>
               }

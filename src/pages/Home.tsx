@@ -33,6 +33,8 @@ export const Home: React.FC = () => {
       }
     };
     loadHomeData();
+    const unsub = dataService.subscribe(loadHomeData);
+    return () => unsub();
   }, [user?.id, user?.email]);
 
   const paymentPendingRegs = registrations.filter((r) => r.status === 'payment_pending');
@@ -231,7 +233,14 @@ export const Home: React.FC = () => {
             </div>
             <div className="divide-y divide-light-outline-variant">
               {notifications.slice(0, 4).map((n) => (
-                <div key={n.id} className="p-md flex flex-col gap-xs">
+                <Link
+                  key={n.id}
+                  to={n.link || '/notifications'}
+                  onClick={() => {
+                    if (!n.read) dataService.markNotificationRead(n.id);
+                  }}
+                  className="p-md flex flex-col gap-xs no-underline hover:bg-light-surface-container-low/40 transition-colors"
+                >
                   <div className="flex items-center justify-between gap-xs">
                     <span className="font-title text-title-sm text-light-on-surface font-semibold">
                       {n.title}
@@ -242,7 +251,7 @@ export const Home: React.FC = () => {
                     {n.description}
                   </p>
                   <span className="font-label text-label-sm text-light-on-surface-variant">{n.timestamp}</span>
-                </div>
+                </Link>
               ))}
               {notifications.length === 0 && (
                 <div className="p-lg text-center text-light-on-surface-variant font-body text-body-sm">

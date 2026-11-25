@@ -71,7 +71,63 @@ function recordLiveOrFallback(error: any, context: string): boolean {
   return true;
 }
 
+const dataListeners = new Set<() => void>();
+const locallyReadNotificationIds = new Set<string>();
+
+function normalizeSectionRoute(path: string): string {
+  const clean = path.split('?')[0].toLowerCase();
+  if (clean.startsWith('/payments')) return clean.replace('/payments', '/payment');
+  if (clean.startsWith('/refunds')) return clean.replace('/refunds', '/refund-status');
+  if (clean.startsWith('/coordinator/queue')) return clean.replace('/coordinator/queue', '/coordinator/proposals');
+  if (clean.startsWith('/profile')) return clean.replace('/profile', '/my-profile');
+  return clean;
+}
+
+const TRACKED_SECTION_PREFIXES = [
+  '/payment',
+  '/my-registrations',
+  '/my-qr',
+  '/refund-status',
+  '/my-badges',
+  '/my-memberships',
+  '/clubs',
+  '/organizer/proposals',
+  '/organizer/events',
+  '/organizer/registrations',
+  '/organizer/attendance',
+  '/organizer/refunds',
+  '/organizer/members',
+  '/coordinator/proposals',
+  '/coordinator/clubs',
+  '/authority/stages',
+  '/authority/history',
+  '/committee/actions',
+  '/verification',
+  '/admin/records',
+  '/admin/roles',
+  '/admin/merchants',
+  '/admin/governance',
+  '/admin/audits',
+];
+
 export const dataService = {
+  subscribe(listener: () => void): () => void {
+    dataListeners.add(listener);
+    return () => {
+      dataListeners.delete(listener);
+    };
+  },
+
+  emitChange(): void {
+    dataListeners.forEach((listener) => {
+      try {
+        listener();
+      } catch (err) {
+        console.warn('dataService listener error:', err);
+      }
+    });
+  },
+
   // --- STORAGE UPLOAD ---
   async uploadAsset(file: File, folder: 'flyers' | 'documents' = 'flyers'): Promise<{ url: string; name: string }> {
     const cleanName = `${folder}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
@@ -531,15 +587,21 @@ export const dataService = {
       if (ev && ev.registered > 0) ev.registered -= 1;
     }
 
-    if (!isSupabaseConfigured) return true;
+    if (!isSupabaseConfigured) {
+      this.emitChange();
+      return true;
+    }
     try {
       const { error } = await supabase
         .from('registrations')
         .update({ status: 'cancelled' })
         .eq('id', id);
-      return recordLiveOrFallback(error, 'cancelRegistration');
+      const ok = recordLiveOrFallback(error, 'cancelRegistration');
+      this.emitChange();
+      return ok;
     } catch (e) {
       recordLiveOrFallback(e, 'cancelRegistration exception');
+      this.emitChange();
       return false;
     }
   },
@@ -581,9 +643,12 @@ export const dataService = {
         .from('registrations')
         .update({ status: newStatus, hold_expires_at: holdExpiresAt || null })
         .eq('id', id);
-      return recordLiveOrFallback(error, 'approveRegistration');
+      const ok = recordLiveOrFallback(error, 'approveRegistration');
+      this.emitChange();
+      return ok;
     } catch (e) {
       recordLiveOrFallback(e, 'approveRegistration exception');
+      this.emitChange();
       return false;
     }
   },
@@ -595,15 +660,21 @@ export const dataService = {
       if (reason) target.rejection_reason = reason;
     }
 
-    if (!isSupabaseConfigured) return true;
+    if (!isSupabaseConfigured) {
+      this.emitChange();
+      return true;
+    }
     try {
       const { error } = await supabase
         .from('registrations')
         .update({ status: 'rejected', rejection_reason: reason })
         .eq('id', id);
-      return recordLiveOrFallback(error, 'declineRegistration');
+      const ok = recordLiveOrFallback(error, 'declineRegistration');
+      this.emitChange();
+      return ok;
     } catch (e) {
       recordLiveOrFallback(e, 'declineRegistration exception');
+      this.emitChange();
       return false;
     }
   },
@@ -1439,12 +1510,18 @@ export const dataService = {
     const target = initialClubMembers.find((m) => m.id === id);
     if (target) target.status = 'Active';
 
-    if (!isSupabaseConfigured) return true;
+    if (!isSupabaseConfigured) {
+      this.emitChange();
+      return true;
+    }
     try {
       const { error } = await supabase.from('club_members').update({ status: 'Active' }).eq('id', id);
-      return recordLiveOrFallback(error, 'approveClubMember');
+      const ok = recordLiveOrFallback(error, 'approveClubMember');
+      this.emitChange();
+      return ok;
     } catch (e) {
       recordLiveOrFallback(e, 'approveClubMember exception');
+      this.emitChange();
       return false;
     }
   },
@@ -1453,12 +1530,18 @@ export const dataService = {
     const target = initialClubMembers.find((m) => m.id === id);
     if (target) target.status = 'Declined';
 
-    if (!isSupabaseConfigured) return true;
+    if (!isSupabaseConfigured) {
+      this.emitChange();
+      return true;
+    }
     try {
       const { error } = await supabase.from('club_members').update({ status: 'Declined' }).eq('id', id);
-      return recordLiveOrFallback(error, 'declineClubMember');
+      const ok = recordLiveOrFallback(error, 'declineClubMember');
+      this.emitChange();
+      return ok;
     } catch (e) {
       recordLiveOrFallback(e, 'declineClubMember exception');
+      this.emitChange();
       return false;
     }
   },
@@ -1510,13 +1593,18 @@ export const dataService = {
         recordLiveOrFallback(e, 'getNotifications exception');
       }
     }
+    const normalized = list.map((n) => ({
+      ...n,
+      read: n.read || locallyReadNotificationIds.has(n.id),
+    }));
     if (userId) {
-      return list.filter((n) => !n.user_id || n.user_id === userId);
+      return normalized.filter((n) => !n.user_id || n.user_id === userId);
     }
-    return list;
+    return normalized;
   },
 
   async markNotificationRead(id: string): Promise<void> {
+    locallyReadNotificationIds.add(id);
     const target = initialNotifications.find((n) => n.id === id);
     if (target) target.read = true;
 
@@ -1527,18 +1615,79 @@ export const dataService = {
         console.warn('Supabase markNotificationRead notice:', e);
       }
     }
+    this.emitChange();
   },
 
-  async markAllNotificationsRead(): Promise<void> {
-    initialNotifications.forEach((n) => (n.read = true));
+  async markAllNotificationsRead(userId?: string): Promise<void> {
+    const items = await this.getNotifications(userId);
+    items.forEach((n) => {
+      locallyReadNotificationIds.add(n.id);
+    });
+    initialNotifications.forEach((n) => {
+      if (!userId || !n.user_id || n.user_id === userId) {
+        n.read = true;
+      }
+    });
 
     if (isSupabaseConfigured) {
       try {
-        await supabase.from('notifications').update({ read: true }).eq('read', false);
+        if (userId) {
+          await supabase
+            .from('notifications')
+            .update({ read: true })
+            .eq('read', false)
+            .or(`user_id.eq.${userId},user_id.is.null`);
+        } else {
+          await supabase.from('notifications').update({ read: true }).eq('read', false);
+        }
       } catch (e) {
         console.warn('Supabase markAllNotificationsRead notice:', e);
       }
     }
+    this.emitChange();
+  },
+
+  async markNotificationsReadForRoute(pathname: string, userId?: string): Promise<number> {
+    const normPath = normalizeSectionRoute(pathname);
+    const matchedPrefix = TRACKED_SECTION_PREFIXES.find((prefix) => normPath.startsWith(prefix));
+    if (!matchedPrefix) return 0;
+
+    const current = await this.getNotifications(userId);
+    const toMark = current.filter((n) => {
+      if (n.read) return false;
+      const nLink = n.link ? normalizeSectionRoute(n.link) : '';
+      if (nLink && nLink.startsWith(matchedPrefix)) return true;
+
+      // Fallback keyword match for legacy alerts without explicit link
+      const text = `${n.title} ${n.description}`.toLowerCase();
+      if (matchedPrefix === '/payment' && text.includes('payment')) return true;
+      if (matchedPrefix === '/my-registrations' && text.includes('registration')) return true;
+      if (matchedPrefix === '/my-qr' && text.includes('qr')) return true;
+      if (matchedPrefix === '/my-badges' && text.includes('badge')) return true;
+      if (matchedPrefix === '/refund-status' && text.includes('refund')) return true;
+      if ((matchedPrefix === '/clubs' || matchedPrefix === '/my-memberships') && text.includes('club')) return true;
+      return false;
+    });
+
+    if (toMark.length === 0) return 0;
+
+    toMark.forEach((n) => {
+      locallyReadNotificationIds.add(n.id);
+      const localItem = initialNotifications.find((item) => item.id === n.id);
+      if (localItem) localItem.read = true;
+    });
+
+    if (isSupabaseConfigured) {
+      try {
+        const ids = toMark.map((n) => n.id);
+        await supabase.from('notifications').update({ read: true }).in('id', ids);
+      } catch (e) {
+        console.warn('Supabase markNotificationsReadForRoute notice:', e);
+      }
+    }
+
+    this.emitChange();
+    return toMark.length;
   },
 
   async addNotification(notif: Omit<NotificationItem, 'id'>): Promise<NotificationItem> {
@@ -1554,6 +1703,7 @@ export const dataService = {
         console.warn('Supabase addNotification notice:', e);
       }
     }
+    this.emitChange();
     return newNotif;
   },
 
@@ -1679,6 +1829,7 @@ export const dataService = {
     } else {
       initialNotifications.unshift(successNotif);
     }
+    locallyReadNotificationIds.delete(successNotif.id);
 
     try {
       localStorage.setItem(
@@ -1710,6 +1861,7 @@ export const dataService = {
               type: 'success',
               icon: 'verified',
               read: false,
+              link: successNotif.link,
             })
             .eq('id', successNotif.id);
         } else {
@@ -1720,6 +1872,7 @@ export const dataService = {
       }
     }
 
+    this.emitChange();
     return { success: true, transaction: targetTx, registration: targetReg };
   },
 
@@ -2049,6 +2202,7 @@ export const dataService = {
         await supabase.from('audit_logs').insert([newLog]);
       } catch {}
     }
+    this.emitChange();
     return newLog;
   },
 
